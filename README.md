@@ -108,8 +108,22 @@ Registra cada producto **una sola vez**: `Código`, `Nombre`, `Categoría`, `Est
 `Stock Mínimo` (umbral para la alerta de stock bajo). El resto se calcula solo.
 
 ### Compras
-`Fecha`, `Código` (lista), `Cantidad`, `Costo Unitario`. Cada compra **suma stock a Casa**
-y **recalcula el costo promedio**.
+`Fecha`, `Código`, `Cantidad`, `Costo Unitario`. Cada compra **suma stock a Casa** y
+**recalcula el costo promedio**.
+
+**Control de pagos y tarjetas (columnas a la derecha de Compras):**
+- **Costos Fijos**: se suman solos a cada pedido (envío + bolsa/etiqueta, definidos en `Config`).
+- **Total Pedido** = Costo Total + Costos Fijos.
+- **Medio de Pago**: elige la tarjeta o medio (lista que configuras en `Config`).
+- **¿A crédito?**: `Sí` / `No`. Si es `No`, el pedido queda como "Pagado (contado)".
+- **Fecha Cierre** y **Fecha Límite Pago**: se calculan solas. Con cierre el **30** y pago el
+  **16** del mes siguiente, una compra de junio cierra el 30/jun y se paga antes del 16/jul.
+- **Abonado**: escribe cuánto has abonado (p. ej. con un préstamo). **Saldo** = lo que falta.
+- **Estado Pago**: Pagado / Abono parcial / Pendiente.
+- **Alerta Pago**: 🟢 al día · 🟠 faltan pocos días · 🔴 vencido. Aparece resumido en el
+  **Dashboard** (Total que debo, Pedidos por pagar, Pagos vencidos y la lista de próximos pagos).
+
+> Puedes cambiar el día de cierre (30), el día de pago (16) y "avisar si faltan X días" en `Config`.
 
 ### Traslados
 `Fecha`, `Código`, `Cantidad`, `Origen` y `Destino`. Mueve unidades entre Casa y

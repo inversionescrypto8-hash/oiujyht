@@ -381,6 +381,13 @@ def build_config():
         else:
             s.text(r, 2, v, S_TEXT)
         r += 1
+    # Costos fijos por pedido (se agregan DESPUÉS del pie, filas 11-12, para NO mover B2..B10).
+    s.text(11, 1, "Costo fijo: envío (Mary)", S_LABEL); s.num(11, 2, 1000, S_INPUT_MONEY)
+    s.text(12, 1, "Costo fijo: bolsa y etiqueta", S_LABEL); s.num(12, 2, 1000, S_INPUT_MONEY)
+    # Días de la tarjeta (genéricos): cierre y pago. Se usan para avisar vencimientos.
+    s.text(13, 1, "Día de cierre de tarjeta", S_LABEL); s.num(13, 2, 30, S_INPUT_INT)
+    s.text(14, 1, "Día de pago de tarjeta", S_LABEL); s.num(14, 2, 16, S_INPUT_INT)
+    s.text(15, 1, "Avisar si faltan (días) o menos", S_LABEL); s.num(15, 2, 5, S_INPUT_INT)
     # Tabla IVA por categoría (columna D = categoría, columna E = IVA %).
     # Se deja el IVA EN BLANCO: escribe 19, 5, 0, etc. según cada categoría.
     # Puedes AGREGAR más categorías escribiéndolas debajo (hasta la fila 30).
@@ -409,6 +416,15 @@ def build_config():
     for k in range(3, 31):           # L3..L30 reflejan D2..D29
         s.formula(k, 12, 'IF($D%d="","",$D%d)' % (k - 1, k - 1), S_TEXT)
     s.colw(12, 150)
+    # Medios de pago / Tarjetas (columna N). Puedes agregar las tuyas.
+    medios = ["Efectivo", "Transferencia", "Tarjeta Visa", "Tarjeta Mastercard",
+              "Tarjeta Crédito 1", "Tarjeta Crédito 2", "Nequi / Daviplata", "Crédito proveedor"]
+    s.text(1, 14, "Medios de pago / Tarjetas", S_SUBTITLE)
+    for i, v in enumerate(medios):
+        s.text(2 + i, 14, v, S_TEXT)
+    for r2 in range(2 + len(medios), 21):
+        s.blank(r2, 14, S_INPUT)
+    s.colw(14, 200)
     return s
 
 # ---------- CATÁLOGO ----------
@@ -531,32 +547,74 @@ def build_catalogo():
 
 # ---------- COMPRAS ----------
 def build_compras():
-    s = Sheet(COMP, freeze_row=1)
-    headers = ["Fecha", "Código", "Producto", "Cantidad", "Costo Unitario", "Costo Total"]
-    widths = [13, 13, 30, 11, 15, 15]
+    s = Sheet(COMP, freeze_row=1, freeze_col=3)
+    # IMPORTANTE: B=Código, D=Cantidad, F=Costo Total se mantienen (el Catálogo depende de ellas).
+    headers = ["Fecha", "Código", "Producto", "Cantidad", "Costo Unitario", "Costo Total",
+               "Costos Fijos", "Total Pedido", "Medio de Pago", "¿A crédito?",
+               "Fecha Cierre", "Fecha Límite Pago", "Abonado", "Saldo", "Estado Pago", "Alerta Pago"]
+    widths = [12, 12, 26, 10, 14, 14, 12, 14, 18, 11, 13, 14, 13, 14, 14, 30]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
+    # cod, cant, costo unit, medio pago, a credito(Si/No), abonado
     sample = [
-        (datetime.date(2026, 6, 1), "P001", 20, 35000),
-        (datetime.date(2026, 6, 1), "P002", 30, 12000),
-        (datetime.date(2026, 6, 2), "P003", 40, 9000),
-        (datetime.date(2026, 6, 2), "P004", 15, 22000),
-        (datetime.date(2026, 6, 3), "P006", 18, 28000),
+        (datetime.date(2026, 6, 1), "P001", 20, 35000, "Tarjeta Crédito 1", "Sí", 0),
+        (datetime.date(2026, 6, 1), "P002", 30, 12000, "Efectivo", "No", 0),
+        (datetime.date(2026, 6, 2), "P003", 40, 9000, "Tarjeta Crédito 1", "Sí", 200000),
+        (datetime.date(2026, 6, 2), "P004", 15, 22000, "Transferencia", "No", 0),
+        (datetime.date(2026, 6, 3), "P006", 18, 28000, "Tarjeta Crédito 2", "Sí", 0),
     ]
     for r in range(2, MOV_LAST + 1):
         i = r - 2
         if i < len(sample):
-            d, cod, qy, cu = sample[i]
+            d, cod, qy, cu, medio, cred, abonado = sample[i]
             s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, cod, S_INPUT)
             s.num(r, 4, qy, S_INPUT_INT); s.num(r, 5, cu, S_INPUT_MONEY)
+            s.text(r, 9, medio, S_INPUT); s.text(r, 10, cred, S_INPUT)
+            s.num(r, 13, abonado, S_INPUT_MONEY)
         else:
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT)
             s.blank(r, 4, S_INPUT_INT); s.blank(r, 5, S_INPUT_MONEY)
+            s.blank(r, 9, S_INPUT); s.blank(r, 10, S_INPUT)
+            s.blank(r, 13, S_INPUT_MONEY)
         B = "$B%d" % r
+        # C producto (depende de B)
         s.formula(r, 3, 'IF(%s="","",IFERROR(VLOOKUP(%s,%s!$A:$B,2,FALSE),"⚠ Código no existe"))'
                   % (B, B, q(CAT)), S_TEXT_A)
+        # F Costo Total = Cantidad * Costo Unitario  (NO se toca: el Catálogo lo usa)
         s.formula(r, 6, 'IF(%s="","",$D%d*$E%d)' % (B, r, r), S_MONEY_A)
+        # G Costos fijos del pedido = envío + bolsa/etiqueta (Config B11 + B12)
+        s.formula(r, 7, 'IF(%s="","",%s!$B$11+%s!$B$12)' % (B, q(CFG), q(CFG)), S_MONEY_A)
+        # H Total Pedido = Costo Total + Costos fijos
+        s.formula(r, 8, 'IF(%s="","",$F%d+$G%d)' % (B, r, r), S_MONEY_A)
+        # K Fecha de cierre: si la compra es DESPUÉS del día de cierre, cierra el mes siguiente.
+        #   (usa Config!B13 = día de cierre, p. ej. 30)
+        s.formula(r, 11,
+                  'IF(OR(%s="",$J%d<>"Sí"),"",'
+                  'IF(DAY($A%d)<=%s!$B$13,'
+                  'DATE(YEAR($A%d),MONTH($A%d),%s!$B$13),'
+                  'EOMONTH($A%d,0)+%s!$B$13))'
+                  % (B, r, r, q(CFG), r, r, q(CFG), r, q(CFG)), S_DATE)
+        # L Fecha límite de pago = mes siguiente al cierre, día de pago (Config!B14, p. ej. 16)
+        s.formula(r, 12,
+                  'IF($K%d="","",DATE(YEAR(EOMONTH($K%d,0)+1),MONTH(EOMONTH($K%d,0)+1),%s!$B$14))'
+                  % (r, r, r, q(CFG)), S_DATE)
+        # N Saldo = Total Pedido - Abonado (lo que aún debes de ese pedido)
+        s.formula(r, 14, 'IF(%s="","",MAX($H%d-$M%d,0))' % (B, r, r), S_MONEY_A)
+        # O Estado de pago
+        s.formula(r, 15,
+                  'IF(%s="","",IF($J%d<>"Sí","Pagado (contado)",'
+                  'IF($N%d<=0,"Pagado",IF($M%d>0,"Abono parcial","Pendiente"))))'
+                  % (B, r, r, r), S_TEXT_A)
+        # P Alerta de pago: avisa si está pendiente y se acerca/pasó la fecha límite.
+        s.formula(r, 16,
+                  'IF(OR(%s="",$J%d<>"Sí",$N%d<=0),"",'
+                  'IF(TODAY()>$L%d,"🔴 VENCIDO hace "&(TODAY()-$L%d)&" día(s)",'
+                  'IF($L%d-TODAY()<=%s!$B$15,"🟠 Faltan "&($L%d-TODAY())&" día(s) para pagar",'
+                  '"🟢 Al día (paga el "&TEXT($L%d,"dd/mm")&")")))'
+                  % (B, r, r, r, r, r, q(CFG), r, r), S_TEXT_A)
     s.validate_list(2, 2, MOV_LAST, 2, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
+    s.validate_list(2, 9, MOV_LAST, 9, "%s!$N$2:$N$20" % q(CFG))   # medio de pago
+    s.validate_list(2, 10, MOV_LAST, 10, '"Sí,No"')                # a crédito
     return s
 
 # ---------- VENTAS ----------
@@ -774,9 +832,38 @@ def build_dashboard():
         s.formula(rr, 2, 'SUMIFS(%s!$H:$H,%s!$A:$A,">="&%s,%s!$A:$A,"<="&%s)' % (q(VEN), q(VEN), mini, q(VEN), mfin), S_MONEY)
         s.formula(rr, 3, 'SUMIFS(%s!$K:$K,%s!$A:$A,">="&%s,%s!$A:$A,"<="&%s)' % (q(VEN), q(VEN), mini, q(VEN), mfin), S_MONEY)
         s.formula(rr, 4, 'SUMIFS(%s!$F:$F,%s!$A:$A,">="&%s,%s!$A:$A,"<="&%s)' % (q(COMP), q(COMP), mini, q(COMP), mfin), S_MONEY)
-    return s
 
-# ---------- CATÁLOGO VENTA (PDF de productos con imagen, por categoría) ----------
+    # ----- Bloque: PAGOS DE COMPRAS A CRÉDITO / TARJETAS -----
+    # KPIs de deuda (usan la función card local: label, formula, estilo_etiqueta, estilo_valor).
+    card(35, 1, "TOTAL QUE DEBO (saldos)",
+         'SUMIF(%s!$O:$O,"Pendiente",%s!$N:$N)+SUMIF(%s!$O:$O,"Abono parcial",%s!$N:$N)'
+         % (q(COMP), q(COMP), q(COMP), q(COMP)), S_KPI_LAB_ALE, S_KPI_MONEY)
+    card(35, 4, "PEDIDOS POR PAGAR",
+         'COUNTIF(%s!$O:$O,"Pendiente")+COUNTIF(%s!$O:$O,"Abono parcial")'
+         % (q(COMP), q(COMP)), S_KPI_LAB_ADV, S_KPI_INT)
+    card(35, 7, "PAGOS VENCIDOS",
+         'SUMPRODUCT((%s!$P$2:$P$%d<>"")*(LEFT(%s!$P$2:$P$%d,4)="🔴"))'
+         % (q(COMP), MOV_LAST, q(COMP), MOV_LAST), S_KPI_LAB_ALE, S_KPI_INT)
+
+    # Tabla con los pedidos a crédito pendientes y su alerta.
+    s.text(38, 1, "💳 PAGOS DE TARJETA / CRÉDITO PENDIENTES", S_BANNER_ALERT); s.merge(38, 1, 38, 12)
+    s.text(39, 1, "Fecha", S_HDR); s.text(39, 2, "Producto", S_HDR); s.merge(39, 2, 39, 4)
+    s.text(39, 5, "Medio de pago", S_HDR); s.merge(39, 5, 39, 6)
+    s.text(39, 7, "Saldo", S_HDR)
+    s.text(39, 8, "Límite pago", S_HDR)
+    s.text(39, 9, "Aviso", S_HDR); s.merge(39, 9, 39, 12)
+    # Listamos los primeros pedidos pendientes a crédito (vista de los primeros registros).
+    for k in range(1, 16):
+        rr = 39 + k
+        cr = k + 1  # fila de Compras
+        cond = '%s!$J%d="Sí",%s!$N%d>0' % (q(COMP), cr, q(COMP), cr)
+        s.formula(rr, 1, 'IF(AND(%s),%s!$A%d,"")' % (cond, q(COMP), cr), S_DATE)
+        s.formula(rr, 2, 'IF(AND(%s),%s!$C%d,"")' % (cond, q(COMP), cr), S_TEXT); s.merge(rr, 2, rr, 4)
+        s.formula(rr, 5, 'IF(AND(%s),%s!$I%d,"")' % (cond, q(COMP), cr), S_TEXT); s.merge(rr, 5, rr, 6)
+        s.formula(rr, 7, 'IF(AND(%s),%s!$N%d,"")' % (cond, q(COMP), cr), S_MONEY)
+        s.formula(rr, 8, 'IF(AND(%s),%s!$L%d,"")' % (cond, q(COMP), cr), S_DATE)
+        s.formula(rr, 9, 'IF(AND(%s),%s!$P%d,"")' % (cond, q(COMP), cr), S_TEXT); s.merge(rr, 9, rr, 12)
+    return s
 def build_catalogo_venta():
     """Hoja para generar catálogos comerciales en PDF, con foto del producto,
     filtrados por categoría (o TODAS) y mostrando el precio que elijas (Detal o Mayor).
