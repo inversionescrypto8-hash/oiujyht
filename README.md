@@ -112,8 +112,6 @@ Registra cada producto **una sola vez**: `Código`, `Nombre`, `Categoría`, `Est
 **recalcula el costo promedio**.
 
 **Control de pagos y tarjetas (columnas a la derecha de Compras):**
-- **Costos Fijos**: se suman solos a cada pedido (envío + bolsa/etiqueta, definidos en `Config`).
-- **Total Pedido** = Costo Total + Costos Fijos.
 - **Medio de Pago**: elige la tarjeta o medio (lista que configuras en `Config`).
 - **¿A crédito?**: `Sí` / `No`. Si es `No`, el pedido queda como "Pagado (contado)".
 - **Fecha Cierre** y **Fecha Límite Pago**: se calculan solas. Con cierre el **30** y pago el
@@ -124,6 +122,7 @@ Registra cada producto **una sola vez**: `Código`, `Nombre`, `Categoría`, `Est
   **Dashboard** (Total que debo, Pedidos por pagar, Pagos vencidos y la lista de próximos pagos).
 
 > Puedes cambiar el día de cierre (30), el día de pago (16) y "avisar si faltan X días" en `Config`.
+> (Los costos fijos de $1.000 + $1.000 NO van en compras: son por **venta** — ver sección Ventas.)
 
 ### Traslados
 `Fecha`, `Código`, `Cantidad`, `Origen` y `Destino`. Mueve unidades entre Casa y
@@ -133,6 +132,11 @@ Mercado Libre actualizando ambas existencias.
 `Fecha`, `Cliente`, `Código`, `Cantidad`, `Ubicación` y `Valor Recibido`. El sistema
 descuenta el inventario y calcula utilidad y margen.
 > Las ventas también se generan automáticamente al **guardar una factura**.
+
+**Costos fijos por venta:** cada venta descuenta automáticamente los costos fijos definidos
+en `Config` (envío Mary + bolsa/etiqueta = $2.000 hoy). La columna **Utilidad Neta** ya los
+resta: `Valor Recibido − Costo Total − Costos Fijos`. Cuando esos costos suban, cámbialos en
+`Config` (filas "Costo fijo por venta…") y todas las ventas se recalculan solas.
 
 ### Ajustes
 `Fecha`, `Código`, `Cantidad (+/-)`, `Ubicación`, `Motivo` y `Nota`.
