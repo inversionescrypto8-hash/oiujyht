@@ -152,6 +152,37 @@ Desde el menú **📊 Gestión → 🧾 Facturación**:
 
 ---
 
+## 5b. Catálogo comercial con fotos (hoja `Catálogo Venta`)
+
+Pensado para enviar a tus clientes un catálogo por categoría (arte, tecnología, etc.),
+**con imagen del producto** y mostrando el precio que elijas (al detal o al por mayor).
+
+**Cómo se cargan los datos (una sola vez, en la hoja `Catálogo`):**
+- **URL Imagen**: pega el enlace público de la foto del producto (ver nota abajo).
+- **Precio Detal**: precio de venta al público.
+- **Precio Mayor**: precio al por mayor.
+
+**Cómo generar el catálogo (en la hoja `Catálogo Venta`):**
+1. En **Categoría** elige la categoría que quieres mostrar (lista desplegable).
+2. En **Tipo de precio** elige **Detal** o **Mayor**.
+3. La hoja arma sola la lista: **foto + nombre + código + precio**, solo de los productos
+   **activos** de esa categoría.
+4. Para enviarlo: menú **Archivo → Descargar → PDF**. En las opciones desmarca *Mostrar
+   cuadrículas*, elige **Hoja actual** y exporta. Listo: un catálogo con apariencia profesional.
+
+> **¿De dónde sale la URL de la imagen?** La función `IMAGE()` necesita un enlace **público**
+> que termine idealmente en `.jpg`/`.png`. Opciones fáciles:
+> - Sube la foto a **Google Drive**, dale clic derecho → *Compartir* → "Cualquier persona con
+>   el enlace", y usa el enlace.
+> - O usa la URL de la imagen tal como aparece en tu publicación de Mercado Libre / tu web
+>   (clic derecho sobre la foto → *Copiar dirección de la imagen*).
+> Si una celda de imagen sale vacía, casi siempre es porque la URL no es pública o no apunta
+> directo al archivo de imagen.
+
+> El catálogo muestra hasta **60 productos por categoría**. Si necesitas más, se puede ampliar.
+
+---
+
 ## 6. Personalización (hoja `Config`)
 
 - **Datos de empresa**: nombre, NIT, dirección, teléfono, correo, web y **URL del logo**
@@ -165,6 +196,9 @@ Desde el menú **📊 Gestión → 🧾 Facturación**:
 - **ID carpeta Drive para PDF** (opcional): pega el ID de una carpeta para guardar allí los PDF.
 - **Listas editables** (columnas a la derecha): `Categorías`, `Ubicaciones`, `Estados`,
   `Motivos de ajuste`. Amplíalas según tu negocio (si agregas una categoría nueva, ponle su IVA %).
+
+> **Precios de venta:** en la hoja `Catálogo` cada producto tiene **Precio Detal** y
+> **Precio Mayor** (además del Costo Promedio que se calcula solo con las compras).
 
 > **Moneda:** los valores están formateados en **pesos colombianos (COP) sin decimales**
 > (ej. `$ 1.234.567`). El separador de miles lo aplica Google Sheets según la configuración

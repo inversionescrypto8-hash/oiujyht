@@ -180,6 +180,17 @@ S_FOOTER = xf(fontId=F_FOOTER, halign="center", valign="center")
 S_FOOTER_SM = xf(fontId=F_GRAYSMALL, halign="center", valign="center")
 S_SECOND = xf(fontId=F_SECOND, halign="left", valign="center")
 
+# catálogo de venta (PDF de productos con imagen)
+F_CVNAME = font('cvname', sz=12, bold=True, color=C_PRIMARIO)
+F_CVPRICE = font('cvprice', sz=16, bold=True, color=C_ACENTO)
+F_CVTITLE = font('cvtitle', sz=22, bold=True, color=C_BLANCO)
+S_CV_IMG = xf(borderId=BORDER_THIN, halign="center", valign="center")
+S_CV_NAME = xf(fontId=F_CVNAME, borderId=BORDER_THIN, halign="left", valign="center", wrap=True)
+S_CV_CODE = xf(fontId=F_GRAYSMALL, borderId=BORDER_THIN, halign="left", valign="center")
+S_CV_PRICE = xf(numFmtId=FMT_MONEY, fontId=F_CVPRICE, borderId=BORDER_THIN, halign="right", valign="center")
+S_CV_TITLE = xf(fontId=F_CVTITLE, fillId=FILL_PRIM, halign="center", valign="center")
+S_CV_SUB = xf(fontId=F_BOLD, fillId=FILL_LIGHT, halign="center", valign="center")
+
 # ----------------------------------------------------------------------
 # Utilidades de celda
 # ----------------------------------------------------------------------
@@ -342,6 +353,7 @@ CLI = "Clientes"
 FAC = "Factura"
 CFG = "Config"
 DASH = "Dashboard"
+CVENTA = "Catálogo Venta"
 
 today = datetime.date(2026, 6, 4)
 
@@ -392,27 +404,34 @@ def build_catalogo():
     s = Sheet(CAT, freeze_row=1, freeze_col=2)
     headers = ["Código", "Nombre", "Categoría", "Estado", "Stock Mínimo",
                "Costo Promedio", "Stock Casa", "Stock Mercado Libre", "Stock Total",
-               "Valor Inventario", "Estado Stock", "IVA %"]
-    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8]
+               "Valor Inventario", "Estado Stock", "IVA %",
+               "URL Imagen", "Precio Detal", "Precio Mayor", "_rank", "_key"]
+    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8, 36, 14, 14, 8, 8]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
+    s.hide_col(16, 8)  # columna _rank (auxiliar para el Catálogo Venta)
+    s.hide_col(17, 8)  # columna _key  (auxiliar: categoría|posición)
+    # cod, nombre, categoria, estado, stock min, url imagen, precio detal, precio mayor
     sample = [
-        ("P001", "Audífonos Bluetooth", "Electrónica", "Activo", 5),
-        ("P002", "Cargador USB-C 20W", "Electrónica", "Activo", 8),
-        ("P003", "Camiseta básica", "Ropa y calzado", "Activo", 10),
-        ("P004", "Termo 1L acero", "Hogar", "Activo", 4),
-        ("P005", "Cuaderno argollado", "Papelería", "Activo", 15),
-        ("P006", "Mouse inalámbrico", "Electrónica", "Activo", 6),
+        ("P001", "Audífonos Bluetooth", "Electrónica", "Activo", 5, "", 75000, 60000),
+        ("P002", "Cargador USB-C 20W", "Electrónica", "Activo", 8, "", 28000, 22000),
+        ("P003", "Camiseta básica", "Ropa y calzado", "Activo", 10, "", 25000, 18000),
+        ("P004", "Termo 1L acero", "Hogar", "Activo", 4, "", 45000, 36000),
+        ("P005", "Cuaderno argollado", "Papelería", "Activo", 15, "", 12000, 8000),
+        ("P006", "Mouse inalámbrico", "Electrónica", "Activo", 6, "", 38000, 30000),
     ]
     for r in range(2, CAT_LAST + 1):
         i = r - 2
         if i < len(sample):
-            cod, nom, cat, est, mn = sample[i]
+            cod, nom, cat, est, mn, img, pdet, pmay = sample[i]
             s.text(r, 1, cod, S_INPUT); s.text(r, 2, nom, S_INPUT); s.text(r, 3, cat, S_INPUT)
             s.text(r, 4, est, S_INPUT); s.num(r, 5, mn, S_INPUT_INT)
+            s.text(r, 13, img, S_INPUT)
+            s.num(r, 14, pdet, S_INPUT_MONEY); s.num(r, 15, pmay, S_INPUT_MONEY)
         else:
             s.blank(r, 1, S_INPUT); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
             s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_INT)
+            s.blank(r, 13, S_INPUT); s.blank(r, 14, S_INPUT_MONEY); s.blank(r, 15, S_INPUT_MONEY)
         A = "$A%d" % r
         # F costo promedio
         s.formula(r, 6, 'IF(%s="","",IFERROR(SUMIF(%s!$B:$B,%s,%s!$F:$F)/SUMIF(%s!$B:$B,%s,%s!$D:$D),0))'
@@ -449,6 +468,14 @@ def build_catalogo():
         # L IVA % (según categoría, tomado de la tabla Config!D:E). En blanco si la categoría no tiene IVA.
         s.formula(r, 12, 'IF(%s="","",IFERROR(VLOOKUP($C%d,%s!$D$2:$E$8,2,FALSE),0))'
                   % (A, r, q(CFG)), S_INT_A)
+        # P (_rank): posición del producto dentro de su categoría (solo activos), para el Catálogo Venta.
+        # Cuenta cuántos productos activos de la MISMA categoría aparecen hasta esta fila.
+        s.formula(r, 16,
+                  'IF(OR(%s="",$D%d<>"Activo"),"",'
+                  'COUNTIFS($C$2:$C%d,$C%d,$D$2:$D%d,"Activo"))'
+                  % (A, r, r, r, r), S_INT_A)
+        # Q (_key): "categoría|posición" para buscar con coincidencia exacta desde Catálogo Venta.
+        s.formula(r, 17, 'IF($P%d="","",$C%d&"|"&$P%d)' % (r, r, r), S_TEXT_A)
     # validaciones
     s.validate_list(2, 3, CAT_LAST, 3, "%s!$D$2:$D$8" % q(CFG))
     s.validate_list(2, 4, CAT_LAST, 4, "%s!$H$2:$H$3" % q(CFG))
@@ -701,6 +728,59 @@ def build_dashboard():
         s.formula(rr, 4, 'SUMIFS(%s!$F:$F,%s!$A:$A,">="&%s,%s!$A:$A,"<="&%s)' % (q(COMP), q(COMP), mini, q(COMP), mfin), S_MONEY)
     return s
 
+# ---------- CATÁLOGO VENTA (PDF de productos con imagen, por categoría) ----------
+def build_catalogo_venta():
+    """Hoja para generar catálogos comerciales en PDF, con foto del producto,
+    filtrados por categoría y mostrando el precio que elijas (Detal o Mayor)."""
+    s = Sheet(CVENTA, hide_gridlines=True)
+    NCAT = 60  # cuántos productos por categoría puede mostrar el catálogo
+
+    # Anchos: A=imagen, B-C=nombre/descr, D=precio
+    s.colw(1, 22); s.colw(2, 30); s.colw(3, 30); s.colw(4, 20)
+
+    # Título (nombre de empresa) y subtítulo dinámico.
+    s.formula(1, 1, "%s!$B$2" % q(CFG), S_CV_TITLE); s.merge(1, 1, 1, 4); s.rowh(1, 44)
+    s.formula(2, 1, '"Catálogo de productos · "&$B$3&" · Precio "&$D$3', S_CV_SUB)
+    s.merge(2, 1, 2, 4); s.rowh(2, 24)
+
+    # Controles (lo que el usuario elige): fila 3.
+    s.text(3, 1, "Categoría:", S_LABEL_RIGHT)
+    s.text(3, 2, "Electrónica", S_INPUT)
+    s.text(3, 3, "Tipo de precio:", S_LABEL_RIGHT)
+    s.text(3, 4, "Detal", S_INPUT)
+    s.rowh(3, 22)
+    s.validate_list(3, 2, 3, 2, "%s!$D$2:$D$8" % q(CFG))
+    s.validate_list(3, 4, 3, 4, '"Detal,Mayor"')
+
+    # Encabezado de la tabla del catálogo.
+    s.text(5, 1, "Imagen", S_HDR); s.text(5, 2, "Producto", S_HDR)
+    s.text(5, 3, "Descripción / Código", S_HDR); s.text(5, 4, "Precio", S_HDR)
+    s.rowh(5, 24)
+
+    # Filas de productos. Para cada posición i mostramos el i-ésimo producto
+    # ACTIVO de la categoría elegida (usando la columna _key del Catálogo).
+    first = 6
+    for i in range(1, NCAT + 1):
+        r = first + (i - 1)
+        key = '$B$3&"|"&%d' % i  # categoría elegida | posición i
+        base_match = 'MATCH(%s,%s!$Q:$Q,0)' % (key, q(CAT))
+        # A: imagen (si hay URL en col M=13)
+        s.formula(r, 1,
+                  'IFERROR(IF(INDEX(%s!$M:$M,%s)="","",IMAGE(INDEX(%s!$M:$M,%s),1)),"")'
+                  % (q(CAT), base_match, q(CAT), base_match), S_CV_IMG)
+        # B: nombre (col B=2)
+        s.formula(r, 2, 'IFERROR(INDEX(%s!$B:$B,%s),"")' % (q(CAT), base_match), S_CV_NAME)
+        # C: código (col A=1)
+        s.formula(r, 3, 'IFERROR("Cód: "&INDEX(%s!$A:$A,%s),"")' % (q(CAT), base_match), S_CV_CODE)
+        # D: precio según tipo elegido (N=14 Detal, O=15 Mayor)
+        s.formula(r, 4,
+                  'IFERROR(IF($D$3="Mayor",INDEX(%s!$O:$O,%s),INDEX(%s!$N:$N,%s)),"")'
+                  % (q(CAT), base_match, q(CAT), base_match), S_CV_PRICE)
+        s.rowh(r, 90)  # alto para que la imagen se vea bien
+
+    return s
+
+
 # ---------- FACTURA ----------
 def build_factura():
     s = Sheet(FAC, hide_gridlines=True)
@@ -781,7 +861,7 @@ def build_workbook(path):
     sheets = [
         build_dashboard(), build_catalogo(), build_compras(), build_ventas(),
         build_traslados(), build_ajustes(), build_inventario(), build_clientes(),
-        build_factura(), build_config(),
+        build_factura(), build_catalogo_venta(), build_config(),
     ]
 
     styles_xml = (
