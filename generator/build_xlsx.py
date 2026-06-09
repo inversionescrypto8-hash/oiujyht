@@ -383,12 +383,18 @@ def build_config():
         r += 1
     # Tabla IVA por categoría (columna D = categoría, columna E = IVA %).
     # Se deja el IVA EN BLANCO: escribe 19, 5, 0, etc. según cada categoría.
-    categorias = ["General", "Electrónica", "Hogar", "Ropa y calzado", "Accesorios", "Papelería", "Otros"]
+    # Puedes AGREGAR más categorías escribiéndolas debajo (hasta la fila 30).
+    categorias = ["General", "Electrónica", "Hogar", "Ropa y calzado",
+                  "Accesorios", "Papelería", "Arte", "Otros"]
     s.text(1, 4, "Categorías", S_SUBTITLE)
     s.text(1, 5, "IVA %", S_SUBTITLE)
     for i, v in enumerate(categorias):
         s.text(2 + i, 4, v, S_TEXT)
         s.blank(2 + i, 5, S_INPUT_INT)   # IVA en blanco, editable por categoría
+    # Filas extra en blanco para nuevas categorías (hasta fila 30).
+    for r in range(2 + len(categorias), 31):
+        s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_INT)
+    s.colw(5, 80)
     # listas auxiliares
     def lista(col, titulo, valores):
         s.text(1, col, titulo, S_SUBTITLE)
@@ -397,6 +403,12 @@ def build_config():
     lista(6, "Ubicaciones", [CASA, ML])
     lista(8, "Estados", ["Activo", "Inactivo"])
     lista(10, "Motivos de ajuste", ["Producto dañado", "Pérdida", "Corrección de conteo", "Ajuste administrativo", "Devolución"])
+    # Columna L: lista para el "Catálogo Venta" = TODAS + categorías (se actualiza sola).
+    s.text(1, 12, "Selección catálogo", S_SUBTITLE)
+    s.text(2, 12, "TODAS", S_TEXT)
+    for k in range(3, 31):           # L3..L30 reflejan D2..D29
+        s.formula(k, 12, 'IF($D%d="","",$D%d)' % (k - 1, k - 1), S_TEXT)
+    s.colw(12, 150)
     return s
 
 # ---------- CATÁLOGO ----------
@@ -405,33 +417,46 @@ def build_catalogo():
     headers = ["Código", "Nombre", "Categoría", "Estado", "Stock Mínimo",
                "Costo Promedio", "Stock Casa", "Stock Mercado Libre", "Stock Total",
                "Valor Inventario", "Estado Stock", "IVA %",
-               "URL Imagen", "Precio Detal", "Precio Mayor", "_rank", "_key"]
-    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8, 36, 14, 14, 8, 8]
+               "URL Imagen", "Precio Detal", "Precio Mayor", "_rank", "_key",
+               "Medidas (ej. 30x40)", "_orden", "_rankAll", "_keyAll"]
+    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8, 36, 14, 14, 8, 8, 16, 8, 8, 8]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     s.hide_col(16, 8)  # columna _rank (auxiliar para el Catálogo Venta)
     s.hide_col(17, 8)  # columna _key  (auxiliar: categoría|posición)
-    # cod, nombre, categoria, estado, stock min, url imagen, precio detal, precio mayor
+    s.hide_col(19, 8)  # columna _orden (auxiliar: área para ordenar por medidas)
+    s.hide_col(20, 8)  # columna _rankAll (auxiliar: orden global para "TODAS")
+    s.hide_col(21, 8)  # columna _keyAll (auxiliar: "TODAS|posición")
+    # cod, nombre, categoria, estado, stock min, url imagen, precio detal, precio mayor, medidas
     sample = [
-        ("P001", "Audífonos Bluetooth", "Electrónica", "Activo", 5, "", 75000, 60000),
-        ("P002", "Cargador USB-C 20W", "Electrónica", "Activo", 8, "", 28000, 22000),
-        ("P003", "Camiseta básica", "Ropa y calzado", "Activo", 10, "", 25000, 18000),
-        ("P004", "Termo 1L acero", "Hogar", "Activo", 4, "", 45000, 36000),
-        ("P005", "Cuaderno argollado", "Papelería", "Activo", 15, "", 12000, 8000),
-        ("P006", "Mouse inalámbrico", "Electrónica", "Activo", 6, "", 38000, 30000),
+        ("P001", "Audífonos Bluetooth", "Electrónica", "Activo", 5, "", 75000, 60000, ""),
+        ("P002", "Cargador USB-C 20W", "Electrónica", "Activo", 8, "", 28000, 22000, ""),
+        ("P003", "Camiseta básica", "Ropa y calzado", "Activo", 10, "", 25000, 18000, ""),
+        ("P004", "Termo 1L acero", "Hogar", "Activo", 4, "", 45000, 36000, ""),
+        ("P005", "Cuaderno argollado", "Papelería", "Activo", 15, "", 12000, 8000, ""),
+        ("P006", "Mouse inalámbrico", "Electrónica", "Activo", 6, "", 38000, 30000, ""),
+        ("A001", "Cuadro abstracto azul", "Arte", "Activo", 1, "", 120000, 90000, "20x20"),
+        ("A002", "Paisaje montañas", "Arte", "Activo", 1, "", 180000, 140000, "30x30"),
+        ("A003", "Retrato moderno", "Arte", "Activo", 1, "", 220000, 170000, "30x40"),
+        ("A004", "Mural flores", "Arte", "Activo", 1, "", 350000, 280000, "50x70"),
     ]
     for r in range(2, CAT_LAST + 1):
         i = r - 2
         if i < len(sample):
-            cod, nom, cat, est, mn, img, pdet, pmay = sample[i]
+            cod, nom, cat, est, mn, img, pdet, pmay, med = sample[i]
             s.text(r, 1, cod, S_INPUT); s.text(r, 2, nom, S_INPUT); s.text(r, 3, cat, S_INPUT)
             s.text(r, 4, est, S_INPUT); s.num(r, 5, mn, S_INPUT_INT)
             s.text(r, 13, img, S_INPUT)
             s.num(r, 14, pdet, S_INPUT_MONEY); s.num(r, 15, pmay, S_INPUT_MONEY)
+            if med:
+                s.text(r, 18, med, S_INPUT)
+            else:
+                s.blank(r, 18, S_INPUT)
         else:
             s.blank(r, 1, S_INPUT); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
             s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_INT)
             s.blank(r, 13, S_INPUT); s.blank(r, 14, S_INPUT_MONEY); s.blank(r, 15, S_INPUT_MONEY)
+            s.blank(r, 18, S_INPUT)
         A = "$A%d" % r
         # F costo promedio
         s.formula(r, 6, 'IF(%s="","",IFERROR(SUMIF(%s!$B:$B,%s,%s!$F:$F)/SUMIF(%s!$B:$B,%s,%s!$D:$D),0))'
@@ -466,18 +491,41 @@ def build_catalogo():
         s.formula(r, 11, 'IF(%s="","",IF($I%d<=0,"Agotado",IF($I%d<=$E%d,"Stock bajo","Disponible")))'
                   % (A, r, r, r), S_TEXT_A)
         # L IVA % (según categoría, tomado de la tabla Config!D:E). En blanco si la categoría no tiene IVA.
-        s.formula(r, 12, 'IF(%s="","",IFERROR(VLOOKUP($C%d,%s!$D$2:$E$8,2,FALSE),0))'
+        s.formula(r, 12, 'IF(%s="","",IFERROR(VLOOKUP($C%d,%s!$D$2:$E$30,2,FALSE),0))'
                   % (A, r, q(CFG)), S_INT_A)
-        # P (_rank): posición del producto dentro de su categoría (solo activos), para el Catálogo Venta.
-        # Cuenta cuántos productos activos de la MISMA categoría aparecen hasta esta fila.
+        # S (_orden): área del cuadro a partir de "AOxB" (ej. 30x40 -> 1200). 0 si no hay medidas.
+        #   Sirve para ordenar los artículos (arte) de menor a mayor tamaño.
+        s.formula(r, 19,
+                  'IF(%s="","",IFERROR('
+                  'VALUE(TRIM(LEFT($R%d,FIND("x",LOWER($R%d))-1)))*'
+                  'VALUE(TRIM(MID($R%d,FIND("x",LOWER($R%d))+1,20))),0))'
+                  % (A, r, r, r, r), S_INT_A)
+        # P (_rank): posición del producto dentro de su categoría (solo activos),
+        #   ORDENADO por área (_orden) y, a igualdad, por nombre. Para el Catálogo Venta.
         s.formula(r, 16,
                   'IF(OR(%s="",$D%d<>"Activo"),"",'
-                  'COUNTIFS($C$2:$C%d,$C%d,$D$2:$D%d,"Activo"))'
-                  % (A, r, r, r, r), S_INT_A)
+                  'SUMPRODUCT(($C$2:$C$%d=$C%d)*($D$2:$D$%d="Activo")*('
+                  '($S$2:$S$%d<$S%d)+(($S$2:$S$%d=$S%d)*($B$2:$B$%d<$B%d))))+1)'
+                  % (A, r, CAT_LAST, r, CAT_LAST,
+                     CAT_LAST, r, CAT_LAST, r, CAT_LAST, r), S_INT_A)
         # Q (_key): "categoría|posición" para buscar con coincidencia exacta desde Catálogo Venta.
         s.formula(r, 17, 'IF($P%d="","",$C%d&"|"&$P%d)' % (r, r, r), S_TEXT_A)
+        # T (_rankAll): orden GLOBAL de todos los activos (categoría -> área -> nombre).
+        #   Permite mostrar TODAS las categorías juntas en el Catálogo Venta.
+        s.formula(r, 20,
+                  'IF(OR(%s="",$D%d<>"Activo"),"",'
+                  'SUMPRODUCT(($D$2:$D$%d="Activo")*('
+                  '($C$2:$C$%d<$C%d)'
+                  '+(($C$2:$C$%d=$C%d)*($S$2:$S$%d<$S%d))'
+                  '+(($C$2:$C$%d=$C%d)*($S$2:$S$%d=$S%d)*($B$2:$B$%d<$B%d))))+1)'
+                  % (A, r, CAT_LAST,
+                     CAT_LAST, r,
+                     CAT_LAST, r, CAT_LAST, r,
+                     CAT_LAST, r, CAT_LAST, r, CAT_LAST, r), S_INT_A)
+        # U (_keyAll): "TODAS|posición".
+        s.formula(r, 21, 'IF($T%d="","","TODAS|"&$T%d)' % (r, r), S_TEXT_A)
     # validaciones
-    s.validate_list(2, 3, CAT_LAST, 3, "%s!$D$2:$D$8" % q(CFG))
+    s.validate_list(2, 3, CAT_LAST, 3, "%s!$D$2:$D$30" % q(CFG))
     s.validate_list(2, 4, CAT_LAST, 4, "%s!$H$2:$H$3" % q(CFG))
     return s
 
@@ -731,11 +779,12 @@ def build_dashboard():
 # ---------- CATÁLOGO VENTA (PDF de productos con imagen, por categoría) ----------
 def build_catalogo_venta():
     """Hoja para generar catálogos comerciales en PDF, con foto del producto,
-    filtrados por categoría y mostrando el precio que elijas (Detal o Mayor)."""
+    filtrados por categoría (o TODAS) y mostrando el precio que elijas (Detal o Mayor).
+    Los productos salen ordenados por categoría y por tamaño (medidas)."""
     s = Sheet(CVENTA, hide_gridlines=True)
-    NCAT = 60  # cuántos productos por categoría puede mostrar el catálogo
+    NCAT = 200  # cuántos productos puede mostrar el catálogo
 
-    # Anchos: A=imagen, B-C=nombre/descr, D=precio
+    # Anchos: A=imagen, B=nombre, C=descr/medidas, D=precio
     s.colw(1, 22); s.colw(2, 30); s.colw(3, 30); s.colw(4, 20)
 
     # Título (nombre de empresa) y subtítulo dinámico.
@@ -745,33 +794,41 @@ def build_catalogo_venta():
 
     # Controles (lo que el usuario elige): fila 3.
     s.text(3, 1, "Categoría:", S_LABEL_RIGHT)
-    s.text(3, 2, "Electrónica", S_INPUT)
+    s.text(3, 2, "TODAS", S_INPUT)
     s.text(3, 3, "Tipo de precio:", S_LABEL_RIGHT)
     s.text(3, 4, "Detal", S_INPUT)
     s.rowh(3, 22)
-    s.validate_list(3, 2, 3, 2, "%s!$D$2:$D$8" % q(CFG))
+    # La lista de categorías incluye "TODAS" + todas las del negocio (Config col L).
+    s.validate_list(3, 2, 3, 2, "%s!$L$2:$L$30" % q(CFG))
     s.validate_list(3, 4, 3, 4, '"Detal,Mayor"')
 
     # Encabezado de la tabla del catálogo.
     s.text(5, 1, "Imagen", S_HDR); s.text(5, 2, "Producto", S_HDR)
-    s.text(5, 3, "Descripción / Código", S_HDR); s.text(5, 4, "Precio", S_HDR)
+    s.text(5, 3, "Medidas / Código", S_HDR); s.text(5, 4, "Precio", S_HDR)
     s.rowh(5, 24)
 
-    # Filas de productos. Para cada posición i mostramos el i-ésimo producto
-    # ACTIVO de la categoría elegida (usando la columna _key del Catálogo).
+    # Filas de productos. Si la categoría elegida es "TODAS" usamos la columna _keyAll (U)
+    # y _rankAll; si es una categoría puntual usamos _key (Q) y _rank.
     first = 6
     for i in range(1, NCAT + 1):
         r = first + (i - 1)
-        key = '$B$3&"|"&%d' % i  # categoría elegida | posición i
-        base_match = 'MATCH(%s,%s!$Q:$Q,0)' % (key, q(CAT))
-        # A: imagen (si hay URL en col M=13)
+        # key correcta según si se eligió TODAS o una categoría puntual.
+        # match() devuelve la fila del Catálogo del i-ésimo producto a mostrar.
+        keycol = 'IF($B$3="TODAS",%s!$U:$U,%s!$Q:$Q)' % (q(CAT), q(CAT))
+        keyval = '$B$3&"|"&%d' % i
+        base_match = 'MATCH(%s,%s,0)' % (keyval, keycol)
+        # A: imagen (col M=13)
         s.formula(r, 1,
                   'IFERROR(IF(INDEX(%s!$M:$M,%s)="","",IMAGE(INDEX(%s!$M:$M,%s),1)),"")'
                   % (q(CAT), base_match, q(CAT), base_match), S_CV_IMG)
         # B: nombre (col B=2)
         s.formula(r, 2, 'IFERROR(INDEX(%s!$B:$B,%s),"")' % (q(CAT), base_match), S_CV_NAME)
-        # C: código (col A=1)
-        s.formula(r, 3, 'IFERROR("Cód: "&INDEX(%s!$A:$A,%s),"")' % (q(CAT), base_match), S_CV_CODE)
+        # C: medidas (col R=18) + código (col A=1). Si no hay medidas, solo el código.
+        s.formula(r, 3,
+                  'IFERROR(IF(INDEX(%s!$R:$R,%s)="","Cód: "&INDEX(%s!$A:$A,%s),'
+                  '"Medidas: "&INDEX(%s!$R:$R,%s)&"  ·  Cód: "&INDEX(%s!$A:$A,%s)),"")'
+                  % (q(CAT), base_match, q(CAT), base_match,
+                     q(CAT), base_match, q(CAT), base_match), S_CV_CODE)
         # D: precio según tipo elegido (N=14 Detal, O=15 Mayor)
         s.formula(r, 4,
                   'IFERROR(IF($D$3="Mayor",INDEX(%s!$O:$O,%s),INDEX(%s!$N:$N,%s)),"")'

@@ -161,14 +161,22 @@ Pensado para enviar a tus clientes un catálogo por categoría (arte, tecnologí
 - **URL Imagen**: pega el enlace público de la foto del producto (ver nota abajo).
 - **Precio Detal**: precio de venta al público.
 - **Precio Mayor**: precio al por mayor.
+- **Medidas (ej. 30x40)**: úsalo para arte/cuadros. Escribe el tamaño como `20x20`, `30x40`,
+  etc. El catálogo ordena los productos de cada categoría **de menor a mayor tamaño**
+  automáticamente (calcula el área). Si un producto no tiene medidas, se ordena por nombre.
 
 **Cómo generar el catálogo (en la hoja `Catálogo Venta`):**
-1. En **Categoría** elige la categoría que quieres mostrar (lista desplegable).
+1. En **Categoría** elige la categoría que quieres mostrar, o **TODAS** para incluir todo tu
+   surtido (lista desplegable).
 2. En **Tipo de precio** elige **Detal** o **Mayor**.
-3. La hoja arma sola la lista: **foto + nombre + código + precio**, solo de los productos
-   **activos** de esa categoría.
+3. La hoja arma sola la lista: **foto + nombre + medidas/código + precio**, solo de los
+   productos **activos**, ordenados por categoría y por tamaño.
 4. Para enviarlo: menú **Archivo → Descargar → PDF**. En las opciones desmarca *Mostrar
    cuadrículas*, elige **Hoja actual** y exporta. Listo: un catálogo con apariencia profesional.
+
+> **Agregar categorías nuevas:** ve a la hoja `Config`, columna **Categorías**, y escribe la
+> nueva categoría en una fila vacía (y su IVA % al lado, si aplica). Aparecerá automáticamente
+> tanto en el desplegable del `Catálogo` como en el selector del `Catálogo Venta`.
 
 > **¿De dónde sale la URL de la imagen?** La función `IMAGE()` necesita un enlace **público**
 > que termine idealmente en `.jpg`/`.png`. Opciones fáciles:
