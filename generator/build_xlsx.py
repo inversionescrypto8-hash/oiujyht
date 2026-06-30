@@ -447,8 +447,10 @@ def build_catalogo():
                "Costo Promedio", "Stock Casa", "Stock Mercado Libre", "Stock Total",
                "Valor Inventario", "Estado Stock", "IVA %",
                "URL Imagen", "Precio Detal", "Precio Mayor", "_rank", "_key",
-               "Medidas (ej. 30x40)", "_orden", "_rankAll", "_keyAll"]
-    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8, 36, 14, 14, 8, 8, 16, 8, 8, 8]
+               "Medidas (ej. 30x40)", "_orden", "_rankAll", "_keyAll",
+               "Fecha 1ª Compra", "Días en Bodega", "Vendidas (total)", "Reabastecer"]
+    widths = [12, 32, 18, 11, 12, 15, 12, 18, 12, 16, 14, 8, 36, 14, 14, 8, 8, 16, 8, 8, 8,
+              14, 13, 14, 30]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     s.hide_col(16, 8)  # columna _rank (auxiliar para el Catálogo Venta)
@@ -553,6 +555,21 @@ def build_catalogo():
                      CAT_LAST, r, CAT_LAST, r, CAT_LAST, r), S_INT_A)
         # U (_keyAll): "TODAS|posición".
         s.formula(r, 21, 'IF($T%d="","","TODAS|"&$T%d)' % (r, r), S_TEXT_A)
+        # V Fecha de la 1ª compra (cuándo entró por primera vez al inventario).
+        s.formula(r, 22,
+                  'IF(%s="","",IFERROR(IF(COUNTIF(%s!$B:$B,$A%d)=0,"",MINIFS(%s!$A:$A,%s!$B:$B,$A%d)),""))'
+                  % (A, q(COMP), r, q(COMP), q(COMP), r), S_DATE)
+        # W Días en bodega (desde la 1ª compra).
+        s.formula(r, 23, 'IF(OR(%s="",$V%d=""),"",TODAY()-$V%d)' % (A, r, r), S_INT_A)
+        # X Unidades vendidas (total histórico).
+        s.formula(r, 24, 'IF(%s="","",SUMIF(%s!$D:$D,$A%d,%s!$F:$F))' % (A, q(VEN), r, q(VEN)), S_INT_A)
+        # Y Sugerencia de reabastecer (rotación rápida o stock bajo/agotado).
+        s.formula(r, 25,
+                  'IF(%s="","",'
+                  'IF(AND($X%d>=3,$W%d<>"",$W%d<=15),"🔥 Se vende rápido — REABASTECE",'
+                  'IF($K%d="Agotado","🔴 Agotado — reabastece",'
+                  'IF($K%d="Stock bajo","🟠 Stock bajo","✅ Ok"))))'
+                  % (A, r, r, r, r, r), S_TEXT_A)
     # validaciones
     s.validate_list(2, 3, CAT_LAST, 3, "%s!$D$2:$D$30" % q(CFG))
     s.validate_list(2, 4, CAT_LAST, 4, "%s!$H$2:$H$3" % q(CFG))
@@ -565,31 +582,32 @@ def build_compras():
     # Los costos fijos ($ Mary + bolsa) NO van aquí: son por VENTA (ver hoja Ventas).
     headers = ["Fecha", "Código", "Producto", "Cantidad", "Costo Unitario", "Costo Total",
                "Medio de Pago", "¿A crédito?", "Fecha Cierre", "Fecha Límite Pago",
-               "Abonado", "Saldo", "Estado Pago", "Alerta Pago"]
-    widths = [12, 12, 26, 10, 14, 14, 18, 11, 13, 14, 13, 14, 14, 30]
+               "Abonado", "Saldo", "Estado Pago", "Alerta Pago",
+               "Fecha Llegada", "Días en Llegar"]
+    widths = [12, 12, 26, 10, 14, 14, 18, 11, 13, 14, 13, 14, 14, 30, 13, 13]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    # cod, cant, costo unit, medio pago, a credito(Si/No), abonado
+    # fecha(pedido), cod, cant, costo unit, medio pago, a credito(Si/No), abonado, fecha llegada
     sample = [
-        (datetime.date(2026, 6, 1), "P001", 20, 35000, "Tarjeta Crédito 1", "Sí", 0),
-        (datetime.date(2026, 6, 1), "P002", 30, 12000, "Efectivo", "No", 0),
-        (datetime.date(2026, 6, 2), "P003", 40, 9000, "Tarjeta Crédito 1", "Sí", 200000),
-        (datetime.date(2026, 6, 2), "P004", 15, 22000, "Transferencia", "No", 0),
-        (datetime.date(2026, 6, 3), "P006", 18, 28000, "Tarjeta Crédito 2", "Sí", 0),
+        (datetime.date(2026, 6, 1), "P001", 20, 35000, "Tarjeta Crédito 1", "Sí", 0, datetime.date(2026, 6, 5)),
+        (datetime.date(2026, 6, 1), "P002", 30, 12000, "Efectivo", "No", 0, datetime.date(2026, 6, 4)),
+        (datetime.date(2026, 6, 2), "P003", 40, 9000, "Tarjeta Crédito 1", "Sí", 200000, datetime.date(2026, 6, 7)),
+        (datetime.date(2026, 6, 2), "P004", 15, 22000, "Transferencia", "No", 0, datetime.date(2026, 6, 6)),
+        (datetime.date(2026, 6, 3), "P006", 18, 28000, "Tarjeta Crédito 2", "Sí", 0, datetime.date(2026, 6, 9)),
     ]
     for r in range(2, MOV_LAST + 1):
         i = r - 2
         if i < len(sample):
-            d, cod, qy, cu, medio, cred, abonado = sample[i]
+            d, cod, qy, cu, medio, cred, abonado, lleg = sample[i]
             s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, cod, S_INPUT)
             s.num(r, 4, qy, S_INPUT_INT); s.num(r, 5, cu, S_INPUT_MONEY)
             s.text(r, 7, medio, S_INPUT); s.text(r, 8, cred, S_INPUT)
-            s.num(r, 11, abonado, S_INPUT_MONEY)
+            s.num(r, 11, abonado, S_INPUT_MONEY); s.date(r, 15, lleg, S_INPUT_DATE)
         else:
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT)
             s.blank(r, 4, S_INPUT_INT); s.blank(r, 5, S_INPUT_MONEY)
             s.blank(r, 7, S_INPUT); s.blank(r, 8, S_INPUT)
-            s.blank(r, 11, S_INPUT_MONEY)
+            s.blank(r, 11, S_INPUT_MONEY); s.blank(r, 15, S_INPUT_DATE)
         B = "$B%d" % r
         # C producto (depende de B)
         s.formula(r, 3, 'IF(%s="","",IFERROR(VLOOKUP(%s,%s!$A:$B,2,FALSE),"⚠ Código no existe"))'
@@ -622,6 +640,8 @@ def build_compras():
                   'IF($J%d-TODAY()<=%s!$B$15,"🟠 Faltan "&($J%d-TODAY())&" día(s) para pagar",'
                   '"🟢 Al día (paga el "&TEXT($J%d,"dd/mm")&")")))'
                   % (B, r, r, r, r, r, q(CFG), r, r), S_TEXT_A)
+        # P Días en llegar = Fecha Llegada - Fecha pedido (cuánto se demoró el proveedor).
+        s.formula(r, 16, 'IF(OR(%s="",$O%d=""),"",$O%d-$A%d)' % (B, r, r, r), S_INT_A)
     s.validate_list(2, 2, MOV_LAST, 2, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
     s.validate_list(2, 7, MOV_LAST, 7, "%s!$N$2:$N$20" % q(CFG))   # medio de pago
     s.validate_list(2, 8, MOV_LAST, 8, '"Sí,No"')                  # a crédito
@@ -907,13 +927,13 @@ def build_catalogo_venta():
     s = Sheet(CVENTA, hide_gridlines=True)
     NCAT = 200  # cuántos productos puede mostrar el catálogo
 
-    # Anchos: A=imagen, B=nombre, C=descr/medidas, D=precio
-    s.colw(1, 22); s.colw(2, 30); s.colw(3, 30); s.colw(4, 20)
+    # Anchos: A=imagen, B=nombre, C=descr/medidas, D=precio, E=disponibles Casa
+    s.colw(1, 22); s.colw(2, 30); s.colw(3, 30); s.colw(4, 20); s.colw(5, 16)
 
     # Título (nombre de empresa) y subtítulo dinámico.
-    s.formula(1, 1, "%s!$B$2" % q(CFG), S_CV_TITLE); s.merge(1, 1, 1, 4); s.rowh(1, 44)
+    s.formula(1, 1, "%s!$B$2" % q(CFG), S_CV_TITLE); s.merge(1, 1, 1, 5); s.rowh(1, 44)
     s.formula(2, 1, '"Catálogo de productos · "&$B$3&" · Precio "&$D$3', S_CV_SUB)
-    s.merge(2, 1, 2, 4); s.rowh(2, 24)
+    s.merge(2, 1, 2, 5); s.rowh(2, 24)
 
     # Controles (lo que el usuario elige): fila 3.
     s.text(3, 1, "Categoría:", S_LABEL_RIGHT)
@@ -928,12 +948,13 @@ def build_catalogo_venta():
     # Encabezado de la tabla del catálogo.
     s.text(5, 1, "Imagen", S_HDR); s.text(5, 2, "Producto", S_HDR)
     s.text(5, 3, "Medidas / Código", S_HDR); s.text(5, 4, "Precio", S_HDR)
+    s.text(5, 5, "Disp. Casa (und)", S_HDR)
     s.rowh(5, 24)
 
     # MÉTODO ROBUSTO (sin huecos): una sola fórmula FILTER+SORT trae TODOS los
     # productos activos de la categoría elegida (o TODAS), ordenados por
     # categoría -> medidas -> nombre. Se vuelca en columnas auxiliares ocultas
-    # (H..Y) y las columnas visibles A..D solo la muestran.
+    # (H..Y) y las columnas visibles A..E solo la muestran.
     NSHOW = 250
     filt = (
         'IFERROR(SORT(FILTER(%s!$A$2:$R$2000,'
@@ -947,7 +968,7 @@ def build_catalogo_venta():
         s.hide_col(c, 10)
 
     # Columnas auxiliares (resultado de FILTER que empieza en H=col8):
-    #   H=Código, I=Nombre, T=URL Imagen, U=Precio Detal, V=Precio Mayor, Y=Medidas
+    #   H=Código, I=Nombre, N=Stock Casa, T=URL Imagen, U=Precio Detal, V=Precio Mayor, Y=Medidas
     first = 6
     for i in range(NSHOW):
         r = first + i
@@ -957,6 +978,8 @@ def build_catalogo_venta():
                   'IF($H%d="","",IF($Y%d="","Cód: "&$H%d,"Medidas: "&$Y%d&"  ·  Cód: "&$H%d))'
                   % (r, r, r, r, r), S_CV_CODE)
         s.formula(r, 4, 'IF($H%d="","",IF($D$3="Mayor",$V%d,$U%d))' % (r, r, r), S_CV_PRICE)
+        # E: unidades disponibles en CASA (lo que tú tienes para vender; ML no se cuenta).
+        s.formula(r, 5, 'IF($H%d="","",$N%d)' % (r, r), S_INT)
         s.rowh(r, 90)
 
     return s
@@ -1028,7 +1051,9 @@ def build_cierre_diario():
     s.text(35, 1, "CUADRE DE EFECTIVO (conteo físico de caja)", S_BANNER_SEC); s.merge(35, 1, 35, 3)
     s.text(36, 1, "Saldo inicial de caja (efectivo de ayer) →", S_LABEL); s.blank(36, 2, S_INPUT_MONEY)
     s.text(37, 1, "+ Efectivo de ventas hoy", S_LABEL); s.formula(37, 2, "$B$6", S_MONEY)
-    s.text(38, 1, "+ Otras entradas en efectivo (abonos, etc.) →", S_LABEL); s.blank(38, 2, S_INPUT_MONEY)
+    s.text(38, 1, "+ Abonos recibidos en efectivo hoy (automático)", S_LABEL)
+    s.formula(38, 2, "SUMIFS('%s'!$C:$C,'%s'!$A:$A,%s,'%s'!$D:$D,\"Efectivo\")" % (ABONOS, ABONOS, fecha, ABONOS), S_MONEY)
+    s.text(38, 3, "Sale solo de los abonos marcados como 'Efectivo'.", S_FOOTER_SM)
     s.text(39, 1, "− Salidas en efectivo (gastos / préstamos dados) →", S_LABEL); s.blank(39, 2, S_INPUT_MONEY)
     s.text(40, 1, "= EFECTIVO QUE DEBERÍA HABER", S_TOTLAB)
     s.formula(40, 2, "$B$36+$B$37+$B$38-$B$39", S_TOTVAL)
@@ -1038,6 +1063,18 @@ def build_cierre_diario():
     s.formula(42, 3, 'IF($B$41="","Cuenta el efectivo y escríbelo arriba",'
               'IF(ROUND($B$42,0)=0,"✅ CUADRA",IF($B$42>0,"🔵 Sobra efectivo","🔴 Falta efectivo")))', S_TEXT)
 
+    # HISTORIAL: los últimos 30 días (para revisar cualquier día pasado de un vistazo).
+    s.text(44, 1, "HISTORIAL — últimos 30 días", S_BANNER_PRIM); s.merge(44, 1, 44, 3)
+    s.text(45, 1, "Día", S_HDR); s.text(45, 2, "Ventas a caja", S_HDR); s.text(45, 3, "Ganancia neta", S_HDR)
+    for k in range(0, 30):
+        rr = 46 + k
+        dia = "TODAY()-%d" % k
+        s.formula(rr, 1, dia, S_DATE)
+        # ventas a caja del día (sin MELI) = ventas - lo de Mercado Libre
+        s.formula(rr, 2,
+                  'SUMIFS(%s,%s,$A%d)-SUMIFS(%s,%s,$A%d,%s,"Mercado Libre")'
+                  % (H, F, rr, H, F, rr, O), S_MONEY)
+        s.formula(rr, 3, 'SUMIFS(%s,%s,$A%d)' % (L, F, rr), S_MONEY)
     return s
 
 
@@ -1089,35 +1126,41 @@ def build_prestamos():
 # ---------- ABONOS DE PRÉSTAMOS (pagos que te hacen, con fecha) ----------
 def build_abonos():
     s = Sheet(ABONOS, freeze_row=1)
-    headers = ["Fecha", "Persona", "Valor Abonado", "Nota"]
-    widths = [13, 24, 16, 34]
+    headers = ["Fecha", "Persona", "Valor Abonado", "Forma de Cobro", "Nota"]
+    widths = [13, 24, 16, 18, 30]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     sample = [
-        (datetime.date(2026, 6, 5), "Pedro Gómez", 50000, "Primer abono"),
-        (datetime.date(2026, 6, 10), "Ana Ruiz", 100000, "Pagó todo"),
+        (datetime.date(2026, 6, 5), "Pedro Gómez", 50000, "Efectivo", "Primer abono"),
+        (datetime.date(2026, 6, 10), "Ana Ruiz", 100000, "Nequi", "Pagó todo"),
     ]
     for r in range(2, MOV_LAST + 1):
         i = r - 2
         if i < len(sample):
-            d, per, val, nota = sample[i]
+            d, per, val, forma, nota = sample[i]
             s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, per, S_INPUT)
-            s.num(r, 3, val, S_INPUT_MONEY); s.text(r, 4, nota, S_INPUT)
+            s.num(r, 3, val, S_INPUT_MONEY); s.text(r, 4, forma, S_INPUT); s.text(r, 5, nota, S_INPUT)
         else:
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT)
-            s.blank(r, 3, S_INPUT_MONEY); s.blank(r, 4, S_INPUT)
-    # La persona se elige de la lista de la hoja Préstamos.
+            s.blank(r, 3, S_INPUT_MONEY); s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT)
+    # La persona se elige de la lista de la hoja Préstamos; la forma de cobro de Config.
     s.validate_list(2, 2, MOV_LAST, 2, "'%s'!$B$2:$B$%d" % (PREST, MOV_LAST))
-    s.text(1, 6, "Cada vez que te devuelven plata de un préstamo, anótalo aquí (con su fecha).", S_FOOTER_SM)
+    s.validate_list(2, 4, MOV_LAST, 4, "%s!$P$2:$P$15" % q(CFG))
+    s.text(1, 7, "Cada vez que te devuelven plata de un préstamo, anótalo aquí (con su fecha y cómo te pagaron).", S_FOOTER_SM)
     return s
 
 
-# ---------- FACTURA ----------
+# ---------- FACTURA (se autollena desde una venta ya registrada) ----------
 def build_factura():
     s = Sheet(FAC, hide_gridlines=True)
     widths = [16, 30, 12, 13, 16, 17]
     for i, w in enumerate(widths):
         s.colw(i + 1, w)
+    VB = "%s!$B$2:$B$2000" % q(VEN)   # columna N° Factura en Ventas
+
+    def fromsale(col):  # trae un dato de la venta elegida (col = letra en Ventas)
+        return 'IFERROR(INDEX(%s!$%s$2:$%s$2000,MATCH($E$2,%s,0)),"")' % (q(VEN), col, col, VB)
+
     # Encabezado empresa
     s.formula(1, 2, "%s!$B$2" % q(CFG), S_COMPANY); s.merge(1, 2, 1, 3)
     s.formula(2, 2, '"NIT: "&%s!$B$3' % q(CFG), S_TEXT); s.merge(2, 2, 2, 3)
@@ -1125,18 +1168,20 @@ def build_factura():
     s.formula(4, 2, '"Tel: "&%s!$B$5&"   |   "&%s!$B$6' % (q(CFG), q(CFG)), S_TEXT); s.merge(4, 2, 4, 3)
     s.formula(5, 2, "%s!$B$7" % q(CFG), S_SECOND); s.merge(5, 2, 5, 3)
     s.text(1, 1, "LOGO", S_FOOTER_SM); s.merge(1, 1, 5, 1)
-    # Metadatos
+    # Metadatos: aquí ELIGES la venta (N° Factura) y todo lo demás se autollena.
     s.text(1, 4, "FACTURA DE VENTA", S_FACTITLE); s.merge(1, 4, 1, 6)
-    s.text(2, 4, "N°:", S_LABEL_RIGHT)
-    s.formula(2, 5, '%s!$B$8&TEXT(%s!$B$9,"0000")' % (q(CFG), q(CFG)), xf(fontId=F_ALERT, halign="left", valign="center")); s.merge(2, 5, 2, 6)
+    s.text(2, 4, "Venta N°:", S_LABEL_RIGHT)
+    s.text(2, 5, "FAC-0001", xf(fontId=F_ALERT, fillId=FILL_INPUT, borderId=BORDER_THIN, halign="left", valign="center"))
+    s.merge(2, 5, 2, 6)
     s.text(3, 4, "Fecha:", S_LABEL_RIGHT)
-    s.formula(3, 5, "TODAY()", S_DATE); s.merge(3, 5, 3, 6)
-    s.text(4, 4, "Pago:", S_LABEL_RIGHT); s.text(4, 5, "Efectivo", S_INPUT); s.merge(4, 5, 4, 6)
-    s.text(5, 4, "Origen inv.:", S_LABEL_RIGHT); s.text(5, 5, CASA, S_INPUT); s.merge(5, 5, 5, 6)
+    s.formula(3, 5, fromsale("A"), S_DATE); s.merge(3, 5, 3, 6)
+    s.text(4, 4, "Pago:", S_LABEL_RIGHT); s.formula(4, 5, fromsale("O"), S_TEXT); s.merge(4, 5, 4, 6)
+    s.text(5, 4, "Origen inv.:", S_LABEL_RIGHT); s.formula(5, 5, fromsale("G"), S_TEXT); s.merge(5, 5, 5, 6)
     s.rowh(6, 8)
-    # Datos cliente
+    # Datos cliente (auto desde la venta)
     s.text(7, 1, "DATOS DEL CLIENTE", S_BANNER_SEC); s.merge(7, 1, 7, 6)
-    s.text(8, 1, "Cliente:", S_LABEL_RIGHT); s.text(8, 2, "Juan Pérez", S_INPUT); s.merge(8, 2, 8, 3)
+    s.text(8, 1, "Cliente:", S_LABEL_RIGHT)
+    s.formula(8, 2, fromsale("C"), S_TEXT); s.merge(8, 2, 8, 3)
     s.text(8, 4, "Documento:", S_LABEL_RIGHT)
     s.formula(8, 5, 'IFERROR(VLOOKUP($B$8,%s!$B:$F,2,FALSE),"")' % q(CLI), S_TEXT); s.merge(8, 5, 8, 6)
     s.text(9, 1, "Teléfono:", S_LABEL_RIGHT)
@@ -1146,23 +1191,21 @@ def build_factura():
     s.text(10, 1, "Dirección:", S_LABEL_RIGHT)
     s.formula(10, 2, 'IFERROR(VLOOKUP($B$8,%s!$B:$F,5,FALSE),"")' % q(CLI), S_TEXT); s.merge(10, 2, 10, 6)
     s.rowh(11, 8)
-    # Tabla productos
+    # Tabla productos (se autollena con los renglones de esa venta)
     s.text(12, 1, "Código", S_HDR); s.text(12, 2, "Descripción", S_HDR); s.merge(12, 2, 12, 3)
     s.text(12, 4, "Cant.", S_HDR); s.text(12, 5, "Vr. Unitario", S_HDR); s.text(12, 6, "Total", S_HDR)
-    # Columnas auxiliares ocultas: G=IVA% del producto (según su categoría), H=IVA $ del renglón.
-    s.hide_col(7, 8); s.hide_col(8, 8)
-    sample_items = [("P001", 2, 55000), ("P002", 1, 22000)]
-    for idx, r in enumerate(range(13, 25)):
-        if idx < len(sample_items):
-            cod, qy, vu = sample_items[idx]
-            s.text(r, 1, cod, S_INPUT)
-            s.num(r, 4, qy, S_INPUT_INT); s.num(r, 5, vu, S_INPUT_MONEY)
-        else:
-            s.blank(r, 1, S_INPUT); s.blank(r, 4, S_INPUT_INT); s.blank(r, 5, S_INPUT_MONEY)
-        s.formula(r, 2, 'IF($A%d="","",IFERROR(VLOOKUP($A%d,%s!$A:$B,2,FALSE),"⚠ Código no existe"))'
+    s.hide_col(7, 8); s.hide_col(8, 8)            # G=IVA%, H=IVA$ (auxiliares)
+    for c in range(10, 15):                       # J..N: auxiliar con las líneas de la venta
+        s.hide_col(c, 10)
+    # J13: trae las líneas de la venta elegida -> Código(J), Producto(K), Cantidad(L), Ubic(M), Valor(N)
+    s.formula(13, 10, 'IFERROR(FILTER(%s!$D$2:$H$2000,%s=$E$2),"")' % (q(VEN), VB), S_TEXT)
+    for r in range(13, 25):
+        s.formula(r, 1, 'IF($J%d="","",$J%d)' % (r, r), S_TEXT_A)
+        s.formula(r, 2, 'IF($A%d="","",IFERROR(VLOOKUP($A%d,%s!$A:$B,2,FALSE),""))'
                   % (r, r, q(CAT)), S_TEXT_A); s.merge(r, 2, r, 3)
-        s.formula(r, 6, 'IF(OR($A%d="",$D%d="",$E%d=""),"",$D%d*$E%d)' % (r, r, r, r, r), S_MONEY_A)
-        # G: IVA % del producto (columna L del Catálogo, según categoría). H: IVA $ del renglón.
+        s.formula(r, 4, 'IF($J%d="","",$L%d)' % (r, r), S_INT)
+        s.formula(r, 5, 'IF(OR($J%d="",$L%d=0),"",$N%d/$L%d)' % (r, r, r, r), S_MONEY)
+        s.formula(r, 6, 'IF($A%d="","",$D%d*$E%d)' % (r, r, r), S_MONEY_A)
         s.formula(r, 7, 'IF($A%d="","",IFERROR(VLOOKUP($A%d,%s!$A:$L,12,FALSE),0))' % (r, r, q(CAT)), S_INT_A)
         s.formula(r, 8, 'IF($F%d="","",ROUND($F%d*$G%d/100,0))' % (r, r, r), S_MONEY_A)
     # Observaciones + totales
@@ -1177,11 +1220,8 @@ def build_factura():
     # Pie
     s.formula(31, 1, "%s!$B$10" % q(CFG), S_FOOTER); s.merge(31, 1, 31, 6)
     s.text(32, 1, "Documento generado electrónicamente · Sistema de Gestión", S_FOOTER_SM); s.merge(32, 1, 32, 6)
-    # validaciones
-    s.validate_list(8, 2, 8, 2, "%s!$B$2:$B$%d" % (q(CLI), CLI_LAST))
-    s.validate_list(13, 1, 24, 1, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
-    s.validate_list(5, 5, 5, 5, "%s!$F$2:$F$3" % q(CFG))
-    s.validate_list(4, 5, 4, 5, '"Efectivo,Transferencia,Tarjeta,Nequi / Daviplata,Crédito"')
+    # Validación: elegir el N° de una venta YA registrada en la hoja Ventas.
+    s.validate_list(2, 5, 2, 5, "%s!$B$2:$B$%d" % (q(VEN), MOV_LAST))
     return s
 
 
