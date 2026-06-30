@@ -900,33 +900,34 @@ def build_catalogo_venta():
     s.text(5, 3, "Medidas / Código", S_HDR); s.text(5, 4, "Precio", S_HDR)
     s.rowh(5, 24)
 
-    # Filas de productos. Si la categoría elegida es "TODAS" usamos la columna _keyAll (U)
-    # y _rankAll; si es una categoría puntual usamos _key (Q) y _rank.
+    # MÉTODO ROBUSTO (sin huecos): una sola fórmula FILTER+SORT trae TODOS los
+    # productos activos de la categoría elegida (o TODAS), ordenados por
+    # categoría -> medidas -> nombre. Se vuelca en columnas auxiliares ocultas
+    # (H..Y) y las columnas visibles A..D solo la muestran.
+    NSHOW = 250
+    filt = (
+        'IFERROR(SORT(FILTER(%s!$A$2:$R$2000,'
+        '(%s!$A$2:$A$2000<>"")*'
+        '(%s!$D$2:$D$2000<>"Inactivo")*'
+        '(($B$3="TODAS")+(%s!$C$2:$C$2000=$B$3))),3,TRUE,18,TRUE,2,TRUE),"")'
+        % (q(CAT), q(CAT), q(CAT), q(CAT))
+    )
+    s.formula(6, 8, filt, S_CV_CODE)   # H6: la "máquina" que trae y ordena los productos
+    for c in range(8, 26):             # ocultar columnas auxiliares H..Y
+        s.hide_col(c, 10)
+
+    # Columnas auxiliares (resultado de FILTER que empieza en H=col8):
+    #   H=Código, I=Nombre, T=URL Imagen, U=Precio Detal, V=Precio Mayor, Y=Medidas
     first = 6
-    for i in range(1, NCAT + 1):
-        r = first + (i - 1)
-        # key correcta según si se eligió TODAS o una categoría puntual.
-        # match() devuelve la fila del Catálogo del i-ésimo producto a mostrar.
-        keycol = 'IF($B$3="TODAS",%s!$U:$U,%s!$Q:$Q)' % (q(CAT), q(CAT))
-        keyval = '$B$3&"|"&%d' % i
-        base_match = 'MATCH(%s,%s,0)' % (keyval, keycol)
-        # A: imagen (col M=13)
-        s.formula(r, 1,
-                  'IFERROR(IF(INDEX(%s!$M:$M,%s)="","",IMAGE(INDEX(%s!$M:$M,%s),1)),"")'
-                  % (q(CAT), base_match, q(CAT), base_match), S_CV_IMG)
-        # B: nombre (col B=2)
-        s.formula(r, 2, 'IFERROR(INDEX(%s!$B:$B,%s),"")' % (q(CAT), base_match), S_CV_NAME)
-        # C: medidas (col R=18) + código (col A=1). Si no hay medidas, solo el código.
+    for i in range(NSHOW):
+        r = first + i
+        s.formula(r, 1, 'IF($H%d="","",IFERROR(IMAGE($T%d,1),""))' % (r, r), S_CV_IMG)
+        s.formula(r, 2, 'IF($H%d="","",$I%d)' % (r, r), S_CV_NAME)
         s.formula(r, 3,
-                  'IFERROR(IF(INDEX(%s!$R:$R,%s)="","Cód: "&INDEX(%s!$A:$A,%s),'
-                  '"Medidas: "&INDEX(%s!$R:$R,%s)&"  ·  Cód: "&INDEX(%s!$A:$A,%s)),"")'
-                  % (q(CAT), base_match, q(CAT), base_match,
-                     q(CAT), base_match, q(CAT), base_match), S_CV_CODE)
-        # D: precio según tipo elegido (N=14 Detal, O=15 Mayor)
-        s.formula(r, 4,
-                  'IFERROR(IF($D$3="Mayor",INDEX(%s!$O:$O,%s),INDEX(%s!$N:$N,%s)),"")'
-                  % (q(CAT), base_match, q(CAT), base_match), S_CV_PRICE)
-        s.rowh(r, 90)  # alto para que la imagen se vea bien
+                  'IF($H%d="","",IF($Y%d="","Cód: "&$H%d,"Medidas: "&$Y%d&"  ·  Cód: "&$H%d))'
+                  % (r, r, r, r, r), S_CV_CODE)
+        s.formula(r, 4, 'IF($H%d="","",IF($D$3="Mayor",$V%d,$U%d))' % (r, r, r), S_CV_PRICE)
+        s.rowh(r, 90)
 
     return s
 
