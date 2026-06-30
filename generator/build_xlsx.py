@@ -1231,31 +1231,34 @@ def build_pagos_tarjeta():
 def build_billeteras():
     """Saldo en tiempo real de cada billetera (todo automático)."""
     s = Sheet(BILL, freeze_row=2)
-    s.colw(1, 22); s.colw(2, 18); s.colw(3, 46)
-    s.text(1, 1, "SALDOS POR BILLETERA (en tiempo real)", S_TITLE); s.merge(1, 1, 1, 3); s.rowh(1, 36)
-    s.text(2, 1, "Billetera", S_HDR); s.text(2, 2, "Saldo actual", S_HDR); s.text(2, 3, "Nota", S_HDR)
+    s.colw(1, 22); s.colw(2, 18); s.colw(3, 18); s.colw(4, 46)
+    s.text(1, 1, "SALDOS POR BILLETERA (en tiempo real)", S_TITLE); s.merge(1, 1, 1, 4); s.rowh(1, 36)
+    s.text(2, 1, "Billetera", S_HDR); s.text(2, 2, "Saldo Inicial", S_HDR)
+    s.text(2, 3, "Saldo Actual", S_HDR); s.text(2, 4, "Nota", S_HDR)
     notas = {"Mercado Libre": "Por cobrar — retíralo a una billetera (hoja Movimientos)",
              "Skydrops": "Por cobrar — retíralo a una billetera (hoja Movimientos)"}
     r = 3
     for w in _BILLETERAS:
         A = "$A%d" % r
-        bal = ("SUMIF('%s'!$O:$O,%s,'%s'!$H:$H)"
+        bal = ("$B%d"
+               "+SUMIF('%s'!$O:$O,%s,'%s'!$H:$H)"
                "+SUMIF('%s'!$D:$D,%s,'%s'!$C:$C)"
                "+SUMIF('%s'!$D:$D,%s,'%s'!$E:$E)"
                "-SUMIF('%s'!$C:$C,%s,'%s'!$E:$E)"
                "-SUMIF('%s'!$K:$K,%s,'%s'!$E:$E)"
                "-SUMIF('%s'!$D:$D,%s,'%s'!$C:$C)"
                "-SUMIFS('%s'!$F:$F,'%s'!$H:$H,\"No\",'%s'!$G:$G,%s)"
-               ) % (VEN, A, VEN, ABONOS, A, ABONOS, MOV, A, MOV, MOV, A, MOV,
+               ) % (r, VEN, A, VEN, ABONOS, A, ABONOS, MOV, A, MOV, MOV, A, MOV,
                     PREST, A, PREST, PAGOST, A, PAGOST, COMP, COMP, COMP, A)
         s.text(r, 1, w, S_LABEL)
-        s.formula(r, 2, bal, S_MONEY)
-        s.text(r, 3, notas.get(w, ""), S_FOOTER_SM)
+        s.blank(r, 2, S_INPUT_MONEY)          # Saldo inicial (lo escribes tú al empezar)
+        s.formula(r, 3, bal, S_TOTVAL)        # Saldo actual = inicial + movimientos
+        s.text(r, 4, notas.get(w, ""), S_FOOTER_SM)
         r += 1
     s.text(r, 1, "TOTAL en billeteras", S_TOTLAB)
-    s.formula(r, 2, "SUM($B$3:$B$%d)" % (r - 1), S_TOTVAL)
-    s.text(r + 2, 1, "Todo se calcula solo: ventas, abonos, transferencias, préstamos, pagos de tarjeta y compras de contado.", S_FOOTER_SM)
-    s.merge(r + 2, 1, r + 2, 3)
+    s.formula(r, 3, "SUM($C$3:$C$%d)" % (r - 1), S_TOTVAL)
+    s.text(r + 2, 1, "Escribe el Saldo Inicial UNA vez (lo que tienes hoy). De ahí en adelante el Saldo Actual se mueve solo: ventas, abonos, transferencias, préstamos, pagos de tarjeta y compras de contado.", S_FOOTER_SM)
+    s.merge(r + 2, 1, r + 2, 4)
     return s
 
 
