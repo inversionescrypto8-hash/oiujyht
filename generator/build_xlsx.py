@@ -357,6 +357,10 @@ CVENTA = "Catálogo Venta"
 CIERRE = "Cierre Diario"
 PREST = "Préstamos"
 ABONOS = "Abonos Préstamos"
+BILL = "Billeteras"
+TARJ = "Tarjetas"
+MOV = "Movimientos"
+PAGOST = "Pagos Tarjeta"
 
 today = datetime.date(2026, 6, 4)
 
@@ -419,25 +423,34 @@ def build_config():
     for k in range(3, 31):           # L3..L30 reflejan D2..D29
         s.formula(k, 12, 'IF($D%d="","",$D%d)' % (k - 1, k - 1), S_TEXT)
     s.colw(12, 150)
-    # Medios de pago / Tarjetas (columna N). Puedes agregar las tuyas.
-    medios = ["Efectivo", "Transferencia", "Tarjeta Visa", "Tarjeta Mastercard",
-              "Tarjeta Crédito 1", "Tarjeta Crédito 2", "Nequi / Daviplata", "Crédito proveedor"]
-    s.text(1, 14, "Medios de pago / Tarjetas", S_SUBTITLE)
-    for i, v in enumerate(medios):
+    # ===== TESORERÍA: billeteras y tarjetas =====
+    # Tarjetas de crédito (columna N) — tus tarjetas reales.
+    tarjetas = ["TC Bancolombia 1 (1517)", "TC Bancolombia 2 (0554)", "TC Bancolombia 3 (4582)",
+                "TC Bancolombia 4 (8366)", "TC Bancolombia 5 (0623)", "TC Bancolombia MM 6 (6423)",
+                "TC Bancolombia MM 7 (2459)", "TC NU 8 (3750)"]
+    s.text(1, 14, "Tarjetas de crédito", S_SUBTITLE)
+    for i, v in enumerate(tarjetas):
         s.text(2 + i, 14, v, S_TEXT)
-    for r2 in range(2 + len(medios), 21):
+    for r2 in range(2 + len(tarjetas), 21):
         s.blank(r2, 14, S_INPUT)
-    s.colw(14, 200)
-    # Formas de cobro de VENTAS (columna P=16): efectivo, bancos, Skydrops, Mercado Libre.
-    # Se usan en la hoja Ventas y en el Cierre Diario. Puedes agregar/quitar.
-    cobros = ["Efectivo", "Nequi", "Daviplata", "Bancolombia", "Davivienda",
-              "BBVA", "Skydrops", "Mercado Libre"]
-    s.text(1, 16, "Formas de cobro (ventas)", S_SUBTITLE)
-    for i, v in enumerate(cobros):
+    s.colw(14, 220)
+    # Billeteras / formas de cobro (columna P) — donde tienes/recibes la plata.
+    billeteras = ["Efectivo", "Nequi", "Bancolombia", "Bancolombia MM", "Daviplata",
+                  "Davivienda", "Mercado Libre", "Skydrops"]
+    s.text(1, 16, "Billeteras (formas de cobro)", S_SUBTITLE)
+    for i, v in enumerate(billeteras):
         s.text(2 + i, 16, v, S_TEXT)
-    for r2 in range(2 + len(cobros), 21):
+    for r2 in range(2 + len(billeteras), 21):
         s.blank(r2, 16, S_INPUT)
     s.colw(16, 200)
+    # Medio de compra (columna R) = billeteras + tarjetas (para elegir cómo pagaste una compra).
+    medios_compra = billeteras + tarjetas
+    s.text(1, 18, "Medio de compra (billetera o tarjeta)", S_SUBTITLE)
+    for i, v in enumerate(medios_compra):
+        s.text(2 + i, 18, v, S_TEXT)
+    for r2 in range(2 + len(medios_compra), 30):
+        s.blank(r2, 18, S_INPUT)
+    s.colw(18, 240)
     return s
 
 # ---------- CATÁLOGO ----------
@@ -643,7 +656,7 @@ def build_compras():
         # P Días en llegar = Fecha Llegada - Fecha pedido (cuánto se demoró el proveedor).
         s.formula(r, 16, 'IF(OR(%s="",$O%d=""),"",$O%d-$A%d)' % (B, r, r, r), S_INT_A)
     s.validate_list(2, 2, MOV_LAST, 2, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
-    s.validate_list(2, 7, MOV_LAST, 7, "%s!$N$2:$N$20" % q(CFG))   # medio de pago
+    s.validate_list(2, 7, MOV_LAST, 7, "%s!$R$2:$R$30" % q(CFG))   # medio de pago (billetera o tarjeta)
     s.validate_list(2, 8, MOV_LAST, 8, '"Sí,No"')                  # a crédito
     return s
 
@@ -875,9 +888,8 @@ def build_dashboard():
 
     # ----- Bloque: PAGOS DE COMPRAS A CRÉDITO / TARJETAS -----
     # KPIs de deuda (usan la función card local: label, formula, estilo_etiqueta, estilo_valor).
-    card(35, 1, "TOTAL QUE DEBO (saldos)",
-         'SUMIF(%s!$M:$M,"Pendiente",%s!$L:$L)+SUMIF(%s!$M:$M,"Abono parcial",%s!$L:$L)'
-         % (q(COMP), q(COMP), q(COMP), q(COMP)), S_KPI_LAB_ALE, S_KPI_MONEY)
+    card(35, 1, "DEUDA TOTAL EN TARJETAS",
+         "SUM('%s'!$D$3:$D$10)" % TARJ, S_KPI_LAB_ALE, S_KPI_MONEY)
     card(35, 4, "PEDIDOS POR PAGAR",
          'COUNTIF(%s!$M:$M,"Pendiente")+COUNTIF(%s!$M:$M,"Abono parcial")'
          % (q(COMP), q(COMP)), S_KPI_LAB_ADV, S_KPI_INT)
@@ -1007,7 +1019,7 @@ def build_cierre_diario():
 
     # INGRESOS (entran a caja / cuentas)
     s.text(5, 1, "INGRESOS DEL DÍA (entran a tu caja / cuentas)", S_BANNER_SEC); s.merge(5, 1, 5, 3)
-    metodos = ["Efectivo", "Nequi", "Daviplata", "Bancolombia", "Davivienda", "BBVA", "Skydrops"]
+    metodos = ["Efectivo", "Nequi", "Bancolombia", "Bancolombia MM", "Daviplata", "Davivienda", "Skydrops"]
     row = 6
     for m in metodos:
         s.text(row, 1, m, S_LABEL); s.formula(row, 2, sumcobro(m), S_MONEY)
@@ -1082,25 +1094,25 @@ def build_cierre_diario():
 def build_prestamos():
     s = Sheet(PREST, freeze_row=1)
     headers = ["Fecha", "Persona", "Teléfono", "Motivo / Nota", "Valor Prestado",
-               "Abonado", "Saldo", "Estado", "Días sin pagar", "Alerta"]
-    widths = [12, 22, 14, 28, 15, 14, 14, 15, 13, 26]
+               "Abonado", "Saldo", "Estado", "Días sin pagar", "Alerta", "Billetera origen"]
+    widths = [12, 22, 14, 28, 15, 14, 14, 15, 13, 26, 16]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    # fecha, persona, tel, motivo, valor  (el Abonado se calcula desde la hoja "Abonos Préstamos")
+    # fecha, persona, tel, motivo, valor, billetera (el Abonado se calcula desde "Abonos Préstamos")
     sample = [
-        (datetime.date(2026, 5, 10), "Pedro Gómez", "3001112233", "Urgencia médica", 200000),
-        (datetime.date(2026, 6, 1), "Ana Ruiz", "3015556677", "Préstamo personal", 100000),
-        (datetime.date(2026, 5, 20), "Luis Mar", "3024445566", "Imprevisto", 150000),
+        (datetime.date(2026, 5, 10), "Pedro Gómez", "3001112233", "Urgencia médica", 200000, "Nequi"),
+        (datetime.date(2026, 6, 1), "Ana Ruiz", "3015556677", "Préstamo personal", 100000, "Efectivo"),
+        (datetime.date(2026, 5, 20), "Luis Mar", "3024445566", "Imprevisto", 150000, "Bancolombia"),
     ]
     for r in range(2, MOV_LAST + 1):
         i = r - 2
         if i < len(sample):
-            d, per, tel, mot, val = sample[i]
+            d, per, tel, mot, val, bill = sample[i]
             s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, per, S_INPUT); s.text(r, 3, tel, S_INPUT)
-            s.text(r, 4, mot, S_INPUT); s.num(r, 5, val, S_INPUT_MONEY)
+            s.text(r, 4, mot, S_INPUT); s.num(r, 5, val, S_INPUT_MONEY); s.text(r, 11, bill, S_INPUT)
         else:
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
-            s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_MONEY)
+            s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_MONEY); s.blank(r, 11, S_INPUT)
         B = "$B%d" % r
         # F Abonado = suma de todos los abonos registrados para esa persona (hoja Abonos Préstamos)
         s.formula(r, 6, 'IF(%s="","",SUMIF(\'%s\'!$B:$B,$B%d,\'%s\'!$C:$C))'
@@ -1120,6 +1132,7 @@ def build_prestamos():
                   'IF($I%d>15,"🟠 Lleva "&$I%d&" días",'
                   '"🟢 Reciente ("&$I%d&" días)"))))'
                   % (B, r, r, r, r, r, r), S_TEXT_A)
+    s.validate_list(2, 11, MOV_LAST, 11, "%s!$P$2:$P$15" % q(CFG))   # billetera origen
     return s
 
 
@@ -1147,6 +1160,126 @@ def build_abonos():
     s.validate_list(2, 2, MOV_LAST, 2, "'%s'!$B$2:$B$%d" % (PREST, MOV_LAST))
     s.validate_list(2, 4, MOV_LAST, 4, "%s!$P$2:$P$15" % q(CFG))
     s.text(1, 7, "Cada vez que te devuelven plata de un préstamo, anótalo aquí (con su fecha y cómo te pagaron).", S_FOOTER_SM)
+    return s
+
+
+# ---------- TESORERÍA: Billeteras, Tarjetas, Movimientos, Pagos Tarjeta ----------
+_BILLETERAS = ["Efectivo", "Nequi", "Bancolombia", "Bancolombia MM", "Daviplata",
+               "Davivienda", "Mercado Libre", "Skydrops"]
+_TARJETAS = ["TC Bancolombia 1 (1517)", "TC Bancolombia 2 (0554)", "TC Bancolombia 3 (4582)",
+             "TC Bancolombia 4 (8366)", "TC Bancolombia 5 (0623)", "TC Bancolombia MM 6 (6423)",
+             "TC Bancolombia MM 7 (2459)", "TC NU 8 (3750)"]
+
+
+def build_movimientos():
+    """Transferencias entre billeteras, retiros de MELI/Skydrops, gastos y aportes."""
+    s = Sheet(MOV, freeze_row=1)
+    headers = ["Fecha", "Tipo", "Billetera Origen", "Billetera Destino", "Valor", "Nota"]
+    widths = [13, 18, 18, 18, 15, 34]
+    for i, h in enumerate(headers):
+        s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
+    sample = [
+        (datetime.date(2026, 6, 8), "Retiro plataforma", "Mercado Libre", "Bancolombia", 45000, "Retiro de MELI a Bancolombia"),
+        (datetime.date(2026, 6, 9), "Transferencia", "Bancolombia", "Nequi", 100000, "Paso plata para pagar"),
+        (datetime.date(2026, 6, 9), "Gasto", "Efectivo", "", 15000, "Almuerzo / varios"),
+    ]
+    for r in range(2, MOV_LAST + 1):
+        i = r - 2
+        if i < len(sample):
+            d, tipo, ori, des, val, nota = sample[i]
+            s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, tipo, S_INPUT); s.text(r, 3, ori, S_INPUT)
+            if des:
+                s.text(r, 4, des, S_INPUT)
+            else:
+                s.blank(r, 4, S_INPUT)
+            s.num(r, 5, val, S_INPUT_MONEY); s.text(r, 6, nota, S_INPUT)
+        else:
+            for c in (1,): s.blank(r, c, S_INPUT_DATE)
+            for c in (2, 3, 4, 6): s.blank(r, c, S_INPUT)
+            s.blank(r, 5, S_INPUT_MONEY)
+    s.validate_list(2, 2, MOV_LAST, 2, '"Transferencia,Retiro plataforma,Gasto,Aporte,Otro"')
+    s.validate_list(2, 3, MOV_LAST, 3, "%s!$P$2:$P$15" % q(CFG))   # origen
+    s.validate_list(2, 4, MOV_LAST, 4, "%s!$P$2:$P$15" % q(CFG))   # destino
+    s.text(1, 8, "Origen = de dónde sale la plata · Destino = a dónde llega. Para un gasto, deja el Destino vacío.", S_FOOTER_SM)
+    return s
+
+
+def build_pagos_tarjeta():
+    """Pagos / abonos a las tarjetas de crédito, indicando de qué billetera salió."""
+    s = Sheet(PAGOST, freeze_row=1)
+    headers = ["Fecha", "Tarjeta", "Valor", "Billetera (de dónde salió)", "Nota"]
+    widths = [13, 26, 15, 24, 30]
+    for i, h in enumerate(headers):
+        s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
+    sample = [
+        (datetime.date(2026, 6, 16), "TC Bancolombia 1 (1517)", 100000, "Bancolombia", "Abono a la deuda"),
+    ]
+    for r in range(2, MOV_LAST + 1):
+        i = r - 2
+        if i < len(sample):
+            d, tar, val, bill, nota = sample[i]
+            s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, tar, S_INPUT)
+            s.num(r, 3, val, S_INPUT_MONEY); s.text(r, 4, bill, S_INPUT); s.text(r, 5, nota, S_INPUT)
+        else:
+            s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT)
+            s.blank(r, 3, S_INPUT_MONEY); s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT)
+    s.validate_list(2, 2, MOV_LAST, 2, "%s!$N$2:$N$15" % q(CFG))   # tarjeta
+    s.validate_list(2, 4, MOV_LAST, 4, "%s!$P$2:$P$15" % q(CFG))   # billetera
+    return s
+
+
+def build_billeteras():
+    """Saldo en tiempo real de cada billetera (todo automático)."""
+    s = Sheet(BILL, freeze_row=2)
+    s.colw(1, 22); s.colw(2, 18); s.colw(3, 46)
+    s.text(1, 1, "SALDOS POR BILLETERA (en tiempo real)", S_TITLE); s.merge(1, 1, 1, 3); s.rowh(1, 36)
+    s.text(2, 1, "Billetera", S_HDR); s.text(2, 2, "Saldo actual", S_HDR); s.text(2, 3, "Nota", S_HDR)
+    notas = {"Mercado Libre": "Por cobrar — retíralo a una billetera (hoja Movimientos)",
+             "Skydrops": "Por cobrar — retíralo a una billetera (hoja Movimientos)"}
+    r = 3
+    for w in _BILLETERAS:
+        A = "$A%d" % r
+        bal = ("SUMIF('%s'!$O:$O,%s,'%s'!$H:$H)"
+               "+SUMIF('%s'!$D:$D,%s,'%s'!$C:$C)"
+               "+SUMIF('%s'!$D:$D,%s,'%s'!$E:$E)"
+               "-SUMIF('%s'!$C:$C,%s,'%s'!$E:$E)"
+               "-SUMIF('%s'!$K:$K,%s,'%s'!$E:$E)"
+               "-SUMIF('%s'!$D:$D,%s,'%s'!$C:$C)"
+               "-SUMIFS('%s'!$F:$F,'%s'!$H:$H,\"No\",'%s'!$G:$G,%s)"
+               ) % (VEN, A, VEN, ABONOS, A, ABONOS, MOV, A, MOV, MOV, A, MOV,
+                    PREST, A, PREST, PAGOST, A, PAGOST, COMP, COMP, COMP, A)
+        s.text(r, 1, w, S_LABEL)
+        s.formula(r, 2, bal, S_MONEY)
+        s.text(r, 3, notas.get(w, ""), S_FOOTER_SM)
+        r += 1
+    s.text(r, 1, "TOTAL en billeteras", S_TOTLAB)
+    s.formula(r, 2, "SUM($B$3:$B$%d)" % (r - 1), S_TOTVAL)
+    s.text(r + 2, 1, "Todo se calcula solo: ventas, abonos, transferencias, préstamos, pagos de tarjeta y compras de contado.", S_FOOTER_SM)
+    s.merge(r + 2, 1, r + 2, 3)
+    return s
+
+
+def build_tarjetas():
+    """Deuda actual de cada tarjeta de crédito (todo automático)."""
+    s = Sheet(TARJ, freeze_row=2)
+    s.colw(1, 28); s.colw(2, 18); s.colw(3, 16); s.colw(4, 16)
+    s.text(1, 1, "DEUDA POR TARJETA DE CRÉDITO", S_TITLE); s.merge(1, 1, 1, 4); s.rowh(1, 36)
+    s.text(2, 1, "Tarjeta", S_HDR); s.text(2, 2, "Comprado a crédito", S_HDR)
+    s.text(2, 3, "Pagado", S_HDR); s.text(2, 4, "Saldo (debes)", S_HDR)
+    r = 3
+    for t in _TARJETAS:
+        A = "$A%d" % r
+        comprado = 'SUMIFS(\'%s\'!$F:$F,\'%s\'!$H:$H,"Sí",\'%s\'!$G:$G,%s)' % (COMP, COMP, COMP, A)
+        pagado = 'SUMIF(\'%s\'!$B:$B,%s,\'%s\'!$C:$C)' % (PAGOST, A, PAGOST)
+        s.text(r, 1, t, S_LABEL)
+        s.formula(r, 2, comprado, S_MONEY)
+        s.formula(r, 3, pagado, S_MONEY)
+        s.formula(r, 4, "MAX($B%d-$C%d,0)" % (r, r), S_TOTVAL)
+        r += 1
+    s.text(r, 1, "TOTAL QUE DEBO EN TARJETAS", S_TOTLAB)
+    s.formula(r, 4, "SUM($D$3:$D$%d)" % (r - 1), S_TOTVAL)
+    s.text(r + 2, 1, "Las compras a crédito (hoja Compras) suman; los abonos (hoja Pagos Tarjeta) restan.", S_FOOTER_SM)
+    s.merge(r + 2, 1, r + 2, 4)
     return s
 
 
@@ -1231,7 +1364,8 @@ def build_factura():
 def build_workbook(path):
     sheets = [
         build_dashboard(), build_catalogo(), build_compras(), build_ventas(),
-        build_cierre_diario(), build_traslados(), build_ajustes(), build_prestamos(),
+        build_cierre_diario(), build_billeteras(), build_tarjetas(), build_movimientos(),
+        build_pagos_tarjeta(), build_traslados(), build_ajustes(), build_prestamos(),
         build_abonos(), build_inventario(), build_clientes(), build_factura(),
         build_catalogo_venta(), build_config(),
     ]
