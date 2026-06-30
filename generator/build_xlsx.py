@@ -355,6 +355,7 @@ CFG = "Config"
 DASH = "Dashboard"
 CVENTA = "Catálogo Venta"
 CIERRE = "Cierre Diario"
+PREST = "Préstamos"
 
 today = datetime.date(2026, 6, 4)
 
@@ -881,6 +882,22 @@ def build_dashboard():
         s.formula(rr, 7, 'IF(AND(%s),%s!$L%d,"")' % (cond, q(COMP), cr), S_MONEY)
         s.formula(rr, 8, 'IF(AND(%s),%s!$J%d,"")' % (cond, q(COMP), cr), S_DATE)
         s.formula(rr, 9, 'IF(AND(%s),%s!$N%d,"")' % (cond, q(COMP), cr), S_TEXT); s.merge(rr, 9, rr, 12)
+
+    # ----- Bloque: PRÉSTAMOS A PERSONAS (dinero prestado) -----
+    s.text(56, 1, "🤝 PRÉSTAMOS A PERSONAS (dinero de la empresa prestado)", S_BANNER_PRIM); s.merge(56, 1, 56, 12)
+    card(57, 1, "PRESTADO ACTUALMENTE", 'SUM(%s!$G:$G)' % q(PREST), S_KPI_LAB_ALE, S_KPI_MONEY)
+    card(57, 4, "PERSONAS QUE ME DEBEN",
+         'COUNTIF(%s!$H:$H,"Pendiente")+COUNTIF(%s!$H:$H,"Abono parcial")' % (q(PREST), q(PREST)),
+         S_KPI_LAB_ADV, S_KPI_INT)
+    card(57, 7, "DÍAS DEL MÁS ANTIGUO SIN PAGAR", 'IFERROR(MAX(%s!$I:$I),0)' % q(PREST),
+         S_KPI_LAB_DARK, S_KPI_INT)
+    s.text(60, 1, "📋 QUIÉN ME DEBE — del más antiguo primero (empieza a cobrar por arriba)", S_BANNER_ALERT)
+    s.merge(60, 1, 60, 12)
+    s.formula(61, 1,
+              'IFERROR(QUERY(%s!$A$2:$J$2000,'
+              '"select B,C,E,F,G,I where G>0 order by I desc '
+              "label B 'Persona', C 'Teléfono', E 'Prestado', F 'Abonado', G 'Saldo', I 'Días'\",0),"
+              '"Nadie te debe 🎉")' % q(PREST), S_TEXT)
     return s
 def build_catalogo_venta():
     """Hoja para generar catálogos comerciales en PDF, con foto del producto,
@@ -1017,6 +1034,48 @@ def build_cierre_diario():
     return s
 
 
+# ---------- PRÉSTAMOS A PERSONAS ----------
+def build_prestamos():
+    s = Sheet(PREST, freeze_row=1)
+    headers = ["Fecha", "Persona", "Teléfono", "Motivo / Nota", "Valor Prestado",
+               "Abonado", "Saldo", "Estado", "Días sin pagar", "Alerta"]
+    widths = [12, 22, 14, 28, 15, 14, 14, 15, 13, 26]
+    for i, h in enumerate(headers):
+        s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
+    # fecha, persona, tel, motivo, valor, abonado
+    sample = [
+        (datetime.date(2026, 5, 10), "Pedro Gómez", "3001112233", "Urgencia médica", 200000, 50000),
+        (datetime.date(2026, 6, 1), "Ana Ruiz", "3015556677", "Préstamo personal", 100000, 100000),
+        (datetime.date(2026, 5, 20), "Luis Mar", "3024445566", "Imprevisto", 150000, 0),
+    ]
+    for r in range(2, MOV_LAST + 1):
+        i = r - 2
+        if i < len(sample):
+            d, per, tel, mot, val, ab = sample[i]
+            s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, per, S_INPUT); s.text(r, 3, tel, S_INPUT)
+            s.text(r, 4, mot, S_INPUT); s.num(r, 5, val, S_INPUT_MONEY); s.num(r, 6, ab, S_INPUT_MONEY)
+        else:
+            s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
+            s.blank(r, 4, S_INPUT); s.blank(r, 5, S_INPUT_MONEY); s.blank(r, 6, S_INPUT_MONEY)
+        B = "$B%d" % r
+        # G Saldo = Valor - Abonado (lo que la persona aún te debe)
+        s.formula(r, 7, 'IF(%s="","",MAX($E%d-$F%d,0))' % (B, r, r), S_MONEY_A)
+        # H Estado
+        s.formula(r, 8,
+                  'IF(%s="","",IF($G%d<=0,"Pagado",IF($F%d>0,"Abono parcial","Pendiente")))'
+                  % (B, r, r), S_TEXT_A)
+        # I Días sin pagar (solo si aún debe)
+        s.formula(r, 9, 'IF(OR(%s="",$G%d<=0),"",TODAY()-$A%d)' % (B, r, r), S_INT_A)
+        # J Alerta por antigüedad
+        s.formula(r, 10,
+                  'IF(%s="","",IF($G%d<=0,"✅ Pagado",'
+                  'IF($I%d>30,"🔴 Cóbrale ya ("&$I%d&" días)",'
+                  'IF($I%d>15,"🟠 Lleva "&$I%d&" días",'
+                  '"🟢 Reciente ("&$I%d&" días)"))))'
+                  % (B, r, r, r, r, r, r), S_TEXT_A)
+    return s
+
+
 # ---------- FACTURA ----------
 def build_factura():
     s = Sheet(FAC, hide_gridlines=True)
@@ -1096,8 +1155,9 @@ def build_factura():
 def build_workbook(path):
     sheets = [
         build_dashboard(), build_catalogo(), build_compras(), build_ventas(),
-        build_cierre_diario(), build_traslados(), build_ajustes(), build_inventario(),
-        build_clientes(), build_factura(), build_catalogo_venta(), build_config(),
+        build_cierre_diario(), build_traslados(), build_ajustes(), build_prestamos(),
+        build_inventario(), build_clientes(), build_factura(), build_catalogo_venta(),
+        build_config(),
     ]
 
     styles_xml = (
