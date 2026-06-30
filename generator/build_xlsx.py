@@ -444,7 +444,8 @@ def build_config():
         s.blank(r2, 16, S_INPUT)
     s.colw(16, 200)
     # Medio de compra (columna R) = billeteras + tarjetas (para elegir cómo pagaste una compra).
-    medios_compra = billeteras + tarjetas
+    # "Inventario inicial" = productos que YA tenías (no descuenta de ninguna billetera ni tarjeta).
+    medios_compra = ["Inventario inicial (ya pagado)"] + billeteras + tarjetas
     s.text(1, 18, "Medio de compra (billetera o tarjeta)", S_SUBTITLE)
     for i, v in enumerate(medios_compra):
         s.text(2 + i, 18, v, S_TEXT)

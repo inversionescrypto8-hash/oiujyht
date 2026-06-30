@@ -15,6 +15,12 @@ Consúltalo cuando tengas una duda; está organizado por temas.
 3. **Costos fijos por venta:** en Config, "Costo fijo por venta: envío (Mary)" y "bolsa y etiqueta" (hoy $1.000 c/u). Cámbialos cuando suban.
 4. **Saldo base de tus billeteras:** hoja **Billeteras** → columna **Saldo Inicial** → escribe cuánto tienes HOY en cada cuenta (Efectivo, Nequi, Bancolombia, etc.). De ahí en adelante el **Saldo Actual** se mueve solo.
    - *Ejemplo:* $200.000 en efectivo, $500.000 en Bancolombia, $150.000 en Nequi → los escribes en Saldo Inicial de cada fila.
+5. **Inventario inicial (productos que YA tienes):** crea cada producto en **Catálogo** y luego cárgalo en **Compras** así:
+   - Fecha = el día que empiezas a usar el sistema (si no recuerdas cuándo lo compraste, usa hoy).
+   - Cantidad = lo que tienes HOY · Costo Unitario = lo que te costó (o tu mejor estimado).
+   - **¿A crédito? = No** · **Medio de Pago = "Inventario inicial (ya pagado)"**.
+   - 👉 Así carga el stock y el costo **sin descontar plata de tus billeteras** (porque esa plata ya la gastaste hace tiempo). Tampoco genera deuda de tarjeta.
+   - *Nota:* si quieres que "Días en Bodega" refleje su antigüedad real, pon una fecha aproximada más vieja; si no recuerdas, no importa, la rotación empieza a contar desde hoy.
 
 ---
 
