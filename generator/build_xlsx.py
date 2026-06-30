@@ -17,6 +17,7 @@ from xml.sax.saxutils import escape
 # ----------------------------------------------------------------------
 CAT_ROWS = 200      # productos: filas 2..201
 MOV_ROWS = 300      # movimientos: filas 2..301
+INCLUDE_SAMPLES = True   # True = con datos de ejemplo; False = plantilla vacía
 CLI_ROWS = 100      # clientes:   filas 2..101
 CAT_LAST = CAT_ROWS + 1   # 201
 MOV_LAST = MOV_ROWS + 1   # 301
@@ -473,7 +474,7 @@ def build_catalogo():
     s.hide_col(20, 8)  # columna _rankAll (auxiliar: orden global para "TODAS")
     s.hide_col(21, 8)  # columna _keyAll (auxiliar: "TODAS|posición")
     # cod, nombre, categoria, estado, stock min, url imagen, precio detal, precio mayor, medidas
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         ("P001", "Audífonos Bluetooth", "Electrónica", "Activo", 5, "", 75000, 60000, ""),
         ("P002", "Cargador USB-C 20W", "Electrónica", "Activo", 8, "", 28000, 22000, ""),
         ("P003", "Camiseta básica", "Ropa y calzado", "Activo", 10, "", 25000, 18000, ""),
@@ -602,7 +603,7 @@ def build_compras():
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     # fecha(pedido), cod, cant, costo unit, medio pago, a credito(Si/No), abonado, fecha llegada
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 1), "P001", 20, 35000, "Tarjeta Crédito 1", "Sí", 0, datetime.date(2026, 6, 5)),
         (datetime.date(2026, 6, 1), "P002", 30, 12000, "Efectivo", "No", 0, datetime.date(2026, 6, 4)),
         (datetime.date(2026, 6, 2), "P003", 40, 9000, "Tarjeta Crédito 1", "Sí", 200000, datetime.date(2026, 6, 7)),
@@ -671,7 +672,7 @@ def build_ventas():
     widths = [12, 12, 22, 12, 28, 10, 16, 15, 15, 14, 13, 14, 14, 10, 18]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P001", 2, CASA, 110000, "Efectivo"),
         (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P002", 1, CASA, 22000, "Nequi"),
         (datetime.date(2026, 6, 4), "FAC-0002", "María Gómez", "P003", 3, ML, 45000, "Mercado Libre"),
@@ -716,7 +717,7 @@ def build_traslados():
     widths = [13, 13, 30, 11, 16, 16, 16, 16]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 3), "P001", 5, CASA, ML),
         (datetime.date(2026, 6, 3), "P003", 10, CASA, ML),
     ]
@@ -746,7 +747,7 @@ def build_ajustes():
     widths = [13, 13, 30, 14, 16, 22, 30, 14]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 3), "P004", -1, CASA, "Producto dañado", "Llegó abollado"),
     ]
     for r in range(2, MOV_LAST + 1):
@@ -774,7 +775,7 @@ def build_clientes():
     widths = [10, 24, 18, 16, 26, 28, 14, 26]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         ("Juan Pérez", "1.111.111", "573001112233", "juan@correo.com", "Cra 1 #2-3", "Bogotá", ""),
         ("María Gómez", "2.222.222", "573004445566", "maria@correo.com", "Cll 4 #5-6", "Medellín", ""),
     ]
@@ -1100,7 +1101,7 @@ def build_prestamos():
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     # fecha, persona, tel, motivo, valor, billetera (el Abonado se calcula desde "Abonos Préstamos")
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 5, 10), "Pedro Gómez", "3001112233", "Urgencia médica", 200000, "Nequi"),
         (datetime.date(2026, 6, 1), "Ana Ruiz", "3015556677", "Préstamo personal", 100000, "Efectivo"),
         (datetime.date(2026, 5, 20), "Luis Mar", "3024445566", "Imprevisto", 150000, "Bancolombia"),
@@ -1144,7 +1145,7 @@ def build_abonos():
     widths = [13, 24, 16, 18, 30]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 5), "Pedro Gómez", 50000, "Efectivo", "Primer abono"),
         (datetime.date(2026, 6, 10), "Ana Ruiz", 100000, "Nequi", "Pagó todo"),
     ]
@@ -1179,7 +1180,7 @@ def build_movimientos():
     widths = [13, 18, 18, 18, 15, 34]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 8), "Retiro plataforma", "Mercado Libre", "Bancolombia", 45000, "Retiro de MELI a Bancolombia"),
         (datetime.date(2026, 6, 9), "Transferencia", "Bancolombia", "Nequi", 100000, "Paso plata para pagar"),
         (datetime.date(2026, 6, 9), "Gasto", "Efectivo", "", 15000, "Almuerzo / varios"),
@@ -1212,7 +1213,7 @@ def build_pagos_tarjeta():
     widths = [13, 26, 15, 24, 30]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
-    sample = [
+    sample = [] if not INCLUDE_SAMPLES else [
         (datetime.date(2026, 6, 16), "TC Bancolombia 1 (1517)", 100000, "Bancolombia", "Abono a la deuda"),
     ]
     for r in range(2, MOV_LAST + 1):
@@ -1308,7 +1309,7 @@ def build_factura():
     # Metadatos: aquí ELIGES la venta (N° Factura) y todo lo demás se autollena.
     s.text(1, 4, "FACTURA DE VENTA", S_FACTITLE); s.merge(1, 4, 1, 6)
     s.text(2, 4, "Venta N°:", S_LABEL_RIGHT)
-    s.text(2, 5, "FAC-0001", xf(fontId=F_ALERT, fillId=FILL_INPUT, borderId=BORDER_THIN, halign="left", valign="center"))
+    s.text(2, 5, ("FAC-0001" if INCLUDE_SAMPLES else ""), xf(fontId=F_ALERT, fillId=FILL_INPUT, borderId=BORDER_THIN, halign="left", valign="center"))
     s.merge(2, 5, 2, 6)
     s.text(3, 4, "Fecha:", S_LABEL_RIGHT)
     s.formula(3, 5, fromsale("A"), S_DATE); s.merge(3, 5, 3, 6)
@@ -1447,5 +1448,7 @@ def build_workbook(path):
 
 
 if __name__ == "__main__":
-    out = build_workbook("Sistema_Gestion_Inventario.xlsx")
-    print("Generado:", out)
+    INCLUDE_SAMPLES = True
+    print("Generado:", build_workbook("Sistema_Gestion_Inventario.xlsx"))
+    INCLUDE_SAMPLES = False
+    print("Generado:", build_workbook("Sistema_Gestion_Inventario_VACIO.xlsx"))
