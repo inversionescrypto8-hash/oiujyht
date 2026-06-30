@@ -354,6 +354,7 @@ FAC = "Factura"
 CFG = "Config"
 DASH = "Dashboard"
 CVENTA = "Catálogo Venta"
+CIERRE = "Cierre Diario"
 
 today = datetime.date(2026, 6, 4)
 
@@ -425,6 +426,16 @@ def build_config():
     for r2 in range(2 + len(medios), 21):
         s.blank(r2, 14, S_INPUT)
     s.colw(14, 200)
+    # Formas de cobro de VENTAS (columna P=16): efectivo, bancos, Skydrops, Mercado Libre.
+    # Se usan en la hoja Ventas y en el Cierre Diario. Puedes agregar/quitar.
+    cobros = ["Efectivo", "Nequi", "Daviplata", "Bancolombia", "Davivienda",
+              "BBVA", "Skydrops", "Mercado Libre"]
+    s.text(1, 16, "Formas de cobro (ventas)", S_SUBTITLE)
+    for i, v in enumerate(cobros):
+        s.text(2 + i, 16, v, S_TEXT)
+    for r2 in range(2 + len(cobros), 21):
+        s.blank(r2, 16, S_INPUT)
+    s.colw(16, 200)
     return s
 
 # ---------- CATÁLOGO ----------
@@ -620,26 +631,26 @@ def build_ventas():
     # IMPORTANTE: F=Cantidad y M=clave se mantienen (el Catálogo depende de ellas).
     headers = ["Fecha", "N° Factura", "Cliente", "Código", "Producto", "Cantidad",
                "Ubicación", "Valor Recibido", "Costo Prom. Unit.", "Costo Total",
-               "Costos Fijos", "Utilidad Neta", "clave", "Margen %"]
-    widths = [12, 12, 22, 12, 28, 10, 16, 15, 15, 14, 13, 14, 14, 10]
+               "Costos Fijos", "Utilidad Neta", "clave", "Margen %", "Forma de Cobro"]
+    widths = [12, 12, 22, 12, 28, 10, 16, 15, 15, 14, 13, 14, 14, 10, 18]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     sample = [
-        (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P001", 2, CASA, 110000),
-        (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P002", 1, CASA, 22000),
-        (datetime.date(2026, 6, 4), "FAC-0002", "María Gómez", "P003", 3, ML, 45000),
+        (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P001", 2, CASA, 110000, "Efectivo"),
+        (datetime.date(2026, 6, 3), "FAC-0001", "Juan Pérez", "P002", 1, CASA, 22000, "Nequi"),
+        (datetime.date(2026, 6, 4), "FAC-0002", "María Gómez", "P003", 3, ML, 45000, "Mercado Libre"),
     ]
     for r in range(2, MOV_LAST + 1):
         i = r - 2
         if i < len(sample):
-            d, fac, cli, cod, qy, ub, val = sample[i]
+            d, fac, cli, cod, qy, ub, val, cobro = sample[i]
             s.date(r, 1, d, S_INPUT_DATE); s.text(r, 2, fac, S_INPUT); s.text(r, 3, cli, S_INPUT)
             s.text(r, 4, cod, S_INPUT); s.num(r, 6, qy, S_INPUT_INT); s.text(r, 7, ub, S_INPUT)
-            s.num(r, 8, val, S_INPUT_MONEY)
+            s.num(r, 8, val, S_INPUT_MONEY); s.text(r, 15, cobro, S_INPUT)
         else:
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
             s.blank(r, 4, S_INPUT); s.blank(r, 6, S_INPUT_INT); s.blank(r, 7, S_INPUT)
-            s.blank(r, 8, S_INPUT_MONEY)
+            s.blank(r, 8, S_INPUT_MONEY); s.blank(r, 15, S_INPUT)
         D = "$D%d" % r
         # E producto
         s.formula(r, 5, 'IF(%s="","",IFERROR(VLOOKUP(%s,%s!$A:$B,2,FALSE),"⚠ Código no existe"))'
@@ -659,6 +670,7 @@ def build_ventas():
     s.validate_list(2, 3, MOV_LAST, 3, "%s!$B$2:$B$%d" % (q(CLI), CLI_LAST))
     s.validate_list(2, 4, MOV_LAST, 4, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
     s.validate_list(2, 7, MOV_LAST, 7, "%s!$F$2:$F$3" % q(CFG))
+    s.validate_list(2, 15, MOV_LAST, 15, "%s!$P$2:$P$15" % q(CFG))   # forma de cobro
     return s
 
 # ---------- TRASLADOS ----------
@@ -932,6 +944,79 @@ def build_catalogo_venta():
     return s
 
 
+# ---------- CIERRE DIARIO / CUADRE DE CAJA ----------
+def build_cierre_diario():
+    s = Sheet(CIERRE, hide_gridlines=True)
+    s.colw(1, 34); s.colw(2, 20); s.colw(3, 44)
+    V = q(VEN)
+    F = "'%s'!$A:$A" % VEN      # fecha
+    H = "'%s'!$H:$H" % VEN      # valor recibido
+    K = "'%s'!$K:$K" % VEN      # costos fijos
+    L = "'%s'!$L:$L" % VEN      # utilidad neta
+    O = "'%s'!$O:$O" % VEN      # forma de cobro
+    fecha = "$B$3"
+
+    def sumcobro(metodo):
+        return 'SUMIFS(%s,%s,%s,%s,"%s")' % (H, F, fecha, O, metodo)
+
+    # Título
+    s.text(1, 1, "CIERRE DIARIO · CUADRE DE CAJA", S_TITLE); s.merge(1, 1, 1, 3); s.rowh(1, 40)
+    s.text(3, 1, "Fecha del cierre:", S_LABEL_RIGHT)
+    s.formula(3, 2, "TODAY()", S_INPUT_DATE)
+    s.text(3, 3, "← cámbiala para ver otro día", S_FOOTER_SM)
+
+    # INGRESOS (entran a caja / cuentas)
+    s.text(5, 1, "INGRESOS DEL DÍA (entran a tu caja / cuentas)", S_BANNER_SEC); s.merge(5, 1, 5, 3)
+    metodos = ["Efectivo", "Nequi", "Daviplata", "Bancolombia", "Davivienda", "BBVA", "Skydrops"]
+    row = 6
+    for m in metodos:
+        s.text(row, 1, m, S_LABEL); s.formula(row, 2, sumcobro(m), S_MONEY)
+        row += 1
+    # row ahora = 13
+    s.text(13, 1, "TOTAL QUE ENTRÓ HOY (sin MELI)", S_TOTLAB)
+    s.formula(13, 2, "SUM($B$6:$B$12)", S_TOTVAL)
+
+    # MELI aparte
+    s.text(15, 1, "APARTE — Mercado Libre (NO entra a tu caja)", S_BANNER_ALERT); s.merge(15, 1, 15, 3)
+    s.text(16, 1, "Mercado Libre", S_LABEL); s.formula(16, 2, sumcobro("Mercado Libre"), S_MONEY)
+    s.text(16, 3, "MELI te paga directo a tu cuenta; no se mezcla con la caja del día.", S_FOOTER_SM)
+
+    # GASTOS del día (salen de caja)
+    s.text(18, 1, "GASTOS DEL DÍA (salen de caja)", S_BANNER_SEC); s.merge(18, 1, 18, 3)
+    s.text(19, 1, "Costos fijos por ventas (Mary + bolsa/etiqueta)", S_LABEL)
+    s.formula(19, 2, 'SUMIFS(%s,%s,%s)' % (K, F, fecha), S_MONEY)
+    s.text(19, 3, "Se descuentan en cada venta del día.", S_FOOTER_SM)
+    s.text(20, 1, "Otro gasto 1 (escribe descripción →)", S_LABEL); s.blank(20, 2, S_INPUT_MONEY)
+    s.text(21, 1, "Otro gasto 2", S_LABEL); s.blank(21, 2, S_INPUT_MONEY)
+    s.text(22, 1, "Otro gasto 3", S_LABEL); s.blank(22, 2, S_INPUT_MONEY)
+    s.text(23, 1, "TOTAL GASTOS DEL DÍA", S_TOTLAB)
+    s.formula(23, 2, "$B$19+SUM($B$20:$B$22)", S_TOTVAL)
+
+    # RESUMEN
+    s.text(25, 1, "RESUMEN DEL DÍA", S_BANNER_PRIM); s.merge(25, 1, 25, 3)
+    s.text(26, 1, "Ventas del día que entran a caja (sin MELI)", S_LABEL); s.formula(26, 2, "$B$13", S_MONEY)
+    s.text(27, 1, "Ventas del día por Mercado Libre (aparte)", S_LABEL); s.formula(27, 2, "$B$16", S_MONEY)
+    s.text(28, 1, "Ganancia neta del día (ya sin costos fijos)", S_LABEL)
+    s.formula(28, 2, 'SUMIFS(%s,%s,%s)' % (L, F, fecha), S_TOTVAL)
+    s.text(29, 1, "Gastos del día", S_LABEL); s.formula(29, 2, "$B$23", S_MONEY)
+
+    # CUADRE DE EFECTIVO
+    s.text(31, 1, "CUADRE DE EFECTIVO (conteo físico de caja)", S_BANNER_SEC); s.merge(31, 1, 31, 3)
+    s.text(32, 1, "Saldo inicial de caja (efectivo de ayer) →", S_LABEL); s.blank(32, 2, S_INPUT_MONEY)
+    s.text(33, 1, "+ Efectivo recibido hoy", S_LABEL); s.formula(33, 2, "$B$6", S_MONEY)
+    s.text(34, 1, "− Gastos pagados en efectivo hoy →", S_LABEL); s.blank(34, 2, S_INPUT_MONEY)
+    s.text(34, 3, "Si pagaste los empaques/cinta en efectivo, ponlo aquí (ej. = costos fijos).", S_FOOTER_SM)
+    s.text(35, 1, "= EFECTIVO QUE DEBERÍA HABER", S_TOTLAB)
+    s.formula(35, 2, "$B$32+$B$33-$B$34", S_TOTVAL)
+    s.text(36, 1, "Efectivo realmente contado en caja →", S_LABEL); s.blank(36, 2, S_INPUT_MONEY)
+    s.text(37, 1, "DIFERENCIA (contado − esperado)", S_TOTLAB)
+    s.formula(37, 2, "$B$36-$B$35", S_TOTVAL)
+    s.formula(37, 3, 'IF($B$36="","Cuenta el efectivo y escríbelo arriba",'
+              'IF(ROUND($B$37,0)=0,"✅ CUADRA",IF($B$37>0,"🔵 Sobra efectivo","🔴 Falta efectivo")))', S_TEXT)
+
+    return s
+
+
 # ---------- FACTURA ----------
 def build_factura():
     s = Sheet(FAC, hide_gridlines=True)
@@ -1011,8 +1096,8 @@ def build_factura():
 def build_workbook(path):
     sheets = [
         build_dashboard(), build_catalogo(), build_compras(), build_ventas(),
-        build_traslados(), build_ajustes(), build_inventario(), build_clientes(),
-        build_factura(), build_catalogo_venta(), build_config(),
+        build_cierre_diario(), build_traslados(), build_ajustes(), build_inventario(),
+        build_clientes(), build_factura(), build_catalogo_venta(), build_config(),
     ]
 
     styles_xml = (
