@@ -1255,7 +1255,19 @@ def build_workbook(path):
           'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>']
     for i, sh in enumerate(sheets):
         wb.append('<sheet name="%s" sheetId="%d" r:id="rId%d"/>' % (escape(sh.name), i + 1, i + 1))
-    wb.append('</sheets><calcPr calcId="0" fullCalcOnLoad="1"/></workbook>')
+    wb.append('</sheets>')
+    # Áreas de impresión: para que el PDF solo muestre la parte bonita (sin columnas auxiliares).
+    names_idx = {sh.name: i for i, sh in enumerate(sheets)}
+    defnames = []
+    if FAC in names_idx:
+        defnames.append('<definedName name="_xlnm.Print_Area" localSheetId="%d">\'%s\'!$A$1:$F$33</definedName>'
+                        % (names_idx[FAC], FAC))
+    if CVENTA in names_idx:
+        defnames.append('<definedName name="_xlnm.Print_Area" localSheetId="%d">\'%s\'!$A$1:$E$120</definedName>'
+                        % (names_idx[CVENTA], CVENTA))
+    if defnames:
+        wb.append('<definedNames>' + ''.join(defnames) + '</definedNames>')
+    wb.append('<calcPr calcId="0" fullCalcOnLoad="1"/></workbook>')
     workbook_xml = ''.join(wb)
 
     # workbook rels
