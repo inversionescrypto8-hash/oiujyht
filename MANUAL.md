@@ -127,3 +127,23 @@ Hoja **Cierre Diario** (fecha en HOY): ingresos por método, MELI aparte, costos
 - **Ganancia del mes (Dashboard)** = suma de esas ganancias.
 - **Préstamos** = NO son ganancia ni gasto; solo mueven plata que va y vuelve.
 - **Billeteras** = lo que tienes · **Tarjetas** = lo que debes.
+
+---
+
+## 🔒 Cómo proteger las fórmulas (para que no se dañen)
+
+Para que nadie (ni tú por error) borre una fórmula, en Google Sheets:
+
+**Método recomendado — "Mostrar advertencia" (no bloquea, solo avisa):**
+1. Selecciona las columnas/celdas que tienen fórmulas (las de fondo **azul claro** o de resultados).
+2. Menú **Datos → Proteger hojas y rangos**.
+3. En el panel de la derecha, clic en **Establecer permisos**.
+4. Elige **"Mostrar una advertencia al editar"** → **Listo**.
+5. Si algún día intentas cambiarlas, te avisa antes (puedes seguir si de verdad quieres).
+
+**Qué proteger (lo más importante):**
+- Hojas que son SOLO resultados (protégelas completas): **Dashboard, Inventario, Tarjetas**.
+- Hojas con fórmulas + pocas casillas de entrada: protege las **columnas de fórmula** en **Catálogo** (F a L y de la R en adelante), **Compras** (C, F, I, J, L–N, P), **Ventas** (E, I–N), **Billeteras** (columna Saldo Actual), **Cierre Diario** (todo menos las celdas amarillas).
+- No protejas las columnas donde tú escribes (las blancas/amarillas).
+
+> Truco rápido: si te parece mucho, protege primero las 3 hojas de solo-resultados (Dashboard, Inventario, Tarjetas) y la columna **Saldo Actual** de Billeteras. Eso ya evita los daños más comunes.
