@@ -12,7 +12,7 @@ Consúltalo cuando tengas una duda; está organizado por temas.
 
 1. **Datos de tu empresa:** hoja **Config** → nombre, NIT, dirección, teléfono, correo, logo (URL) y mensaje del pie de factura.
 2. **IVA por categoría:** en Config, tabla *Categorías* → ponle a cada categoría su IVA % (19, 5, 0…). Si vendes algo nuevo, agrega la categoría en una fila vacía.
-3. **Costos fijos por venta:** en Config, "Costo fijo por venta: envío (Mary)" y "bolsa y etiqueta" (hoy $1.000 c/u). Cámbialos cuando suban.
+3. **Costos fijos por venta (valor de referencia):** en Config, "Costo fijo por venta: envío (Mary) — referencia" y "bolsa y etiqueta — referencia" (hoy $1.000 c/u). Este valor es solo el que se **precarga** en cada venta nueva; cada venta lo puede cambiar individualmente (ver EJEMPLO 6-B más abajo).
 4. **Saldo base de tus billeteras:** hoja **Billeteras** → columna **Saldo Inicial** → escribe cuánto tienes HOY en cada cuenta (Efectivo, Nequi, Bancolombia, etc.). De ahí en adelante el **Saldo Actual** se mueve solo.
    - *Ejemplo:* $200.000 en efectivo, $500.000 en Bancolombia, $150.000 en Nequi → los escribes en Saldo Inicial de cada fila.
 5. **Inventario inicial (productos que YA tienes):** crea cada producto en **Catálogo** y luego cárgalo en **Compras** así:
@@ -57,6 +57,14 @@ Hoja **Traslados**: Fecha, Código, Cantidad, Origen `Casa`, Destino `Mercado Li
 Hoja **Ventas**, una fila: Fecha, **N° Factura** (tú lo inventas, ej. `FAC-100`), Cliente, Código, Cantidad, Ubicación, **Valor Recibido**, **Forma de Cobro**.
 - *Efecto:* descuenta inventario, calcula **Utilidad Neta**, y suma la plata a esa billetera.
 
+## 💵 EJEMPLO 6-B — Cambiar el costo de Mary/Papelería en UNA venta, o cobrar publicidad
+Al final de la fila de **Ventas** hay 3 columnas editables (por si esa venta en particular tuvo un costo distinto):
+- **Costo Mary** → ya viene con $1.000 puesto, pero si ese día el envío costó $1.500, borra el 1.000 y pon 1500 **solo en esa fila**.
+- **Costo Papelería** → igual, viene con $1.000, cámbialo si esa venta usó más o menos empaque.
+- **Publicidad** → viene **vacía**. Solo la llenas si esa venta específica vino de una pauta/publicidad paga (ej. $5.000 de pauta). Si la venta no tuvo publicidad, la dejas vacía y no resta nada.
+- *Efecto:* la columna **Costos Fijos** de esa fila se recalcula sola sumando las 3 (Mary + Papelería + Publicidad), y de ahí sale la **Utilidad Neta** real de esa venta puntual.
+- *Ejemplo:* vendiste con pauta de Instagram que te costó $8.000 → en esa fila, Publicidad = 8000. En las demás ventas (sin pauta) la dejas vacía.
+
 ## 🛍️ EJEMPLO 7 — Vender VARIOS productos a un cliente
 T100 x5, T200 x5, T300 x50 → en **Ventas** pones **una fila por producto, todas con el mismo N° Factura** (ej. `FAC-101`).
 - *Efecto:* al elegir `FAC-101` en la Factura, salen los 3 juntos.
@@ -74,6 +82,7 @@ Hoja **Factura** → en **"Venta N°"** elige el número (ej. `FAC-100`). Se aut
 
 ## 🖼️ EJEMPLO 10 — Catálogo de productos en PDF
 Hoja **Catálogo Venta** → elige **Categoría** (o `TODAS`) y **Tipo de precio** (`Detal`/`Mayor`). Muestra foto, medidas, precio y **Disp. Casa (und)**.
+- **Se actualiza solo:** un producto solo aparece aquí si está "Activo" **Y** tiene Stock Casa mayor a 0. Si aún no le has hecho ninguna Compra, o si ya se agotó en Casa, desaparece automáticamente de este catálogo — no tienes que marcarlo Inactivo a mano. (Si lo tienes en Mercado Libre pero no en Casa, tampoco sale aquí, porque este catálogo es para lo que puedes vender directo desde Casa.)
 - Para enviarlo: selecciona las filas con productos y **Archivo → Descargar → PDF → Celdas seleccionadas**.
 
 ---
@@ -108,6 +117,13 @@ Hoja **Movimientos**:
 - **Transferencia:** Origen `Bancolombia`, Destino `Nequi`, Valor.
 - **Gasto:** Origen `Efectivo`, Destino **vacío**, Valor, Nota.
 - **Aporte** (meter plata nueva): Origen vacío, Destino la billetera, Valor.
+
+## 🏧 EJEMPLO 15-B — Metiste o sacaste efectivo sin que sea venta ni gasto (aporte de capital, retiro de cajero)
+Esto pasa, por ejemplo: metiste capital propio a la empresa, o sacaste plata del banco para tener efectivo en caja.
+- **Capital que entra (aporte):** Movimientos → Tipo `Aporte`, Origen **vacío**, Destino la billetera donde entró (ej. `Bancolombia` o `Efectivo`), Valor.
+- **Retiro del banco a la caja física:** Movimientos → Tipo `Transferencia`, Origen `Bancolombia`, Destino `Efectivo`, Valor.
+- *Efecto en Cierre Diario:* **no toques nada a mano.** El Cuadre de Efectivo tiene 2 líneas automáticas que leen Movimientos solas: "+ Transferencias/Aportes que entraron a Efectivo hoy" y "− ... que salieron de Efectivo hoy". Así, cuando cuentes el efectivo físico, el "esperado" ya incluye ese dinero y el cuadre te da bien sin ajustes manuales.
+- *Importante:* ni el Aporte ni la Transferencia interna son ganancia ni gasto — solo mueven dónde está guardada la plata.
 
 ---
 
@@ -147,3 +163,13 @@ Para que nadie (ni tú por error) borre una fórmula, en Google Sheets:
 - No protejas las columnas donde tú escribes (las blancas/amarillas).
 
 > Truco rápido: si te parece mucho, protege primero las 3 hojas de solo-resultados (Dashboard, Inventario, Tarjetas) y la columna **Saldo Actual** de Billeteras. Eso ya evita los daños más comunes.
+
+---
+
+## 📝 Historial de cambios
+
+**3 de julio 2026:**
+- **Cierre Diario:** nuevas líneas automáticas que suman/restan las transferencias del día que entran o salen de Efectivo (leyendo Movimientos) — ver EJEMPLO 15-B.
+- **Ventas:** 3 columnas nuevas editables al final (Costo Mary, Costo Papelería, Publicidad) — ver EJEMPLO 6-B.
+- **Catálogo Venta:** ya no muestra productos con Stock Casa = 0, aunque estén "Activo" — ver EJEMPLO 10.
+

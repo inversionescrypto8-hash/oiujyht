@@ -27,6 +27,12 @@ cálculo de Google. **No es una app**: todo vive en la hoja de cálculo, con fó
 - Validar siempre tras generar: (a) el ZIP abre, (b) cada XML es válido, (c) ningún índice de
   estilo fuera de rango, (d) sin referencias a hojas inexistentes, (e) sin solapes de celdas
   combinadas, (f) `python3 -c "import ast; ast.parse(...)"` para sintaxis.
+- **Límite de la validación automática:** fórmulas con `FILTER`/`SORT` que "se derraman" a
+  celdas vecinas (ej. Catálogo Venta) solo se derraman de verdad dentro de Google Sheets; si
+  se recalculan con LibreOffice (headless, para pruebas) el derrame no ocurre y salen vacías
+  aunque la fórmula esté bien escrita. No es un bug — es una limitación de la herramienta de
+  prueba. Cualquier cambio a ese tipo de fórmula debe confirmarse abriendo el archivo en
+  Google Sheets real, no solo con LibreOffice.
 - **Fórmulas:** se usan funciones compatibles con Google Sheets: `VLOOKUP, SUMIF, SUMIFS, IF,
   IFERROR, COUNTIF/S, EOMONTH, TODAY, FILTER, SORT, QUERY, IMAGE, INDEX, MATCH, MINIFS`.
 - **Moneda:** pesos colombianos (COP) **sin decimales**.
@@ -55,9 +61,13 @@ cálculo de Google. **No es una app**: todo vive en la hoja de cálculo, con fó
    pago: Medio de Pago (billetera o tarjeta), ¿A crédito?, fechas de cierre/llegada. "Inventario
    inicial (ya pagado)" = cargar productos viejos sin afectar billeteras.
 4. **Ventas** — descuenta inventario; calcula Utilidad Neta (valor − costo − costos fijos);
-   tiene Forma de Cobro (billetera) y N° Factura.
+   tiene Forma de Cobro (billetera) y N° Factura. Los costos fijos por venta (envío Mary,
+   bolsa/etiqueta) y Publicidad son **editables fila por fila** (columnas P/Q/R al final):
+   se precargan con el valor de Config pero cada venta puede tener el suyo. **No mover D
+   (Código), F (Cantidad) ni M (clave): el Catálogo depende de esas posiciones.**
 5. **Cierre Diario** — cuadre del día: ingresos por método, MELI aparte, gastos, préstamos del
-   día, ganancia, cuadre de efectivo e historial de 30 días.
+   día, ganancia, cuadre de efectivo (incluye transferencias/aportes automáticos hacia/desde
+   Efectivo, leídos de Movimientos) e historial de 30 días.
 6. **Billeteras** — saldo en tiempo real de cada billetera (Saldo Inicial editable + automático).
 7. **Tarjetas** — deuda por tarjeta (compras a crédito − pagos).
 8. **Movimientos** — transferencias entre billeteras, retiros de MELI/Skydrops, gastos, aportes.
@@ -70,7 +80,8 @@ cálculo de Google. **No es una app**: todo vive en la hoja de cálculo, con fó
 15. **Clientes** — base de clientes.
 16. **Factura** — **se autollena eligiendo una venta (N° Factura)**; PDF con área de impresión.
 17. **Catálogo Venta** — catálogo comercial con foto, medidas, precio (detal/mayor) y unidades
-    disponibles en Casa; filtra por categoría o TODAS; PDF.
+    disponibles en Casa; filtra por categoría o TODAS; oculta automáticamente productos con
+    Stock Casa = 0 (no requiere marcar Inactivo a mano); PDF.
 18. **Config** — datos de empresa, IVA por categoría, listas de billeteras/tarjetas/categorías, costos fijos.
 
 ## 6. Reglas que NO se deben romper
