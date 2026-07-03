@@ -389,9 +389,11 @@ def build_config():
         else:
             s.text(r, 2, v, S_TEXT)
         r += 1
-    # Costos fijos POR VENTA (se cobran/asumen en cada venta). Filas 11-12 (no mueven B2..B10).
-    s.text(11, 1, "Costo fijo por venta: envío (Mary)", S_LABEL); s.num(11, 2, 1000, S_INPUT_MONEY)
-    s.text(12, 1, "Costo fijo por venta: bolsa y etiqueta", S_LABEL); s.num(12, 2, 1000, S_INPUT_MONEY)
+    # Costos fijos POR VENTA — valor de REFERENCIA (se precarga en cada fila nueva de Ventas,
+    # pero cada venta puede cambiarlo individualmente allá si ese día costó distinto).
+    # Filas 11-12 (no mueven B2..B10).
+    s.text(11, 1, "Costo fijo por venta: envío (Mary) — referencia", S_LABEL); s.num(11, 2, 1000, S_INPUT_MONEY)
+    s.text(12, 1, "Costo fijo por venta: bolsa y etiqueta — referencia", S_LABEL); s.num(12, 2, 1000, S_INPUT_MONEY)
     # Días de la tarjeta (genéricos): cierre y pago. Se usan para avisar vencimientos.
     s.text(13, 1, "Día de cierre de tarjeta", S_LABEL); s.num(13, 2, 30, S_INPUT_INT)
     s.text(14, 1, "Día de pago de tarjeta", S_LABEL); s.num(14, 2, 16, S_INPUT_INT)
@@ -546,25 +548,28 @@ def build_catalogo():
                   'VALUE(TRIM(LEFT($R%d,FIND("x",LOWER($R%d))-1)))*'
                   'VALUE(TRIM(MID($R%d,FIND("x",LOWER($R%d))+1,20))),0))'
                   % (A, r, r, r, r), S_INT_A)
-        # P (_rank): posición del producto dentro de su categoría (solo activos),
+        # P (_rank): posición del producto dentro de su categoría (solo activos Y con stock > 0),
         #   ORDENADO por área (_orden) y, a igualdad, por nombre. Para el Catálogo Venta.
+        #   Si el producto no tiene stock (aún no se le ha hecho ninguna Compra, o se agotó),
+        #   NO entra al ranking y por lo tanto no sale en el Catálogo Venta, sin tener que
+        #   marcarlo manualmente como Inactivo.
         s.formula(r, 16,
-                  'IF(OR(%s="",$D%d<>"Activo"),"",'
-                  'SUMPRODUCT(($C$2:$C$%d=$C%d)*($D$2:$D$%d="Activo")*('
+                  'IF(OR(%s="",$D%d<>"Activo",$I%d<=0),"",'
+                  'SUMPRODUCT(($C$2:$C$%d=$C%d)*($D$2:$D$%d="Activo")*($I$2:$I$%d>0)*('
                   '($S$2:$S$%d<$S%d)+(($S$2:$S$%d=$S%d)*($B$2:$B$%d<$B%d))))+1)'
-                  % (A, r, CAT_LAST, r, CAT_LAST,
+                  % (A, r, r, CAT_LAST, r, CAT_LAST, CAT_LAST,
                      CAT_LAST, r, CAT_LAST, r, CAT_LAST, r), S_INT_A)
         # Q (_key): "categoría|posición" para buscar con coincidencia exacta desde Catálogo Venta.
         s.formula(r, 17, 'IF($P%d="","",$C%d&"|"&$P%d)' % (r, r, r), S_TEXT_A)
-        # T (_rankAll): orden GLOBAL de todos los activos (categoría -> área -> nombre).
-        #   Permite mostrar TODAS las categorías juntas en el Catálogo Venta.
+        # T (_rankAll): orden GLOBAL de todos los activos CON STOCK (categoría -> área -> nombre).
+        #   Permite mostrar TODAS las categorías juntas en el Catálogo Venta, sin productos agotados.
         s.formula(r, 20,
-                  'IF(OR(%s="",$D%d<>"Activo"),"",'
-                  'SUMPRODUCT(($D$2:$D$%d="Activo")*('
+                  'IF(OR(%s="",$D%d<>"Activo",$I%d<=0),"",'
+                  'SUMPRODUCT(($D$2:$D$%d="Activo")*($I$2:$I$%d>0)*('
                   '($C$2:$C$%d<$C%d)'
                   '+(($C$2:$C$%d=$C%d)*($S$2:$S$%d<$S%d))'
                   '+(($C$2:$C$%d=$C%d)*($S$2:$S$%d=$S%d)*($B$2:$B$%d<$B%d))))+1)'
-                  % (A, r, CAT_LAST,
+                  % (A, r, r, CAT_LAST, CAT_LAST,
                      CAT_LAST, r,
                      CAT_LAST, r, CAT_LAST, r,
                      CAT_LAST, r, CAT_LAST, r, CAT_LAST, r), S_INT_A)
@@ -668,8 +673,9 @@ def build_ventas():
     # IMPORTANTE: F=Cantidad y M=clave se mantienen (el Catálogo depende de ellas).
     headers = ["Fecha", "N° Factura", "Cliente", "Código", "Producto", "Cantidad",
                "Ubicación", "Valor Recibido", "Costo Prom. Unit.", "Costo Total",
-               "Costos Fijos", "Utilidad Neta", "clave", "Margen %", "Forma de Cobro"]
-    widths = [12, 12, 22, 12, 28, 10, 16, 15, 15, 14, 13, 14, 14, 10, 18]
+               "Costos Fijos", "Utilidad Neta", "clave", "Margen %", "Forma de Cobro",
+               "Costo Mary (editable)", "Costo Papelería (editable)", "Publicidad (editable)"]
+    widths = [12, 12, 22, 12, 28, 10, 16, 15, 15, 14, 13, 14, 14, 10, 18, 16, 18, 16]
     for i, h in enumerate(headers):
         s.text(1, i + 1, h, S_HDR); s.colw(i + 1, widths[i])
     sample = [] if not INCLUDE_SAMPLES else [
@@ -688,6 +694,14 @@ def build_ventas():
             s.blank(r, 1, S_INPUT_DATE); s.blank(r, 2, S_INPUT); s.blank(r, 3, S_INPUT)
             s.blank(r, 4, S_INPUT); s.blank(r, 6, S_INPUT_INT); s.blank(r, 7, S_INPUT)
             s.blank(r, 8, S_INPUT_MONEY); s.blank(r, 15, S_INPUT)
+        # P/Q Costo Mary y Costo Papelería: editables, precargados con el valor de Config
+        # (B11/B12) para que no toque escribirlos siempre, pero se pueden cambiar en
+        # cualquier fila si esa venta tuvo un costo distinto (ej. envío más caro ese día).
+        # R Publicidad: editable, en blanco por defecto (solo se llena si esa venta
+        # tuvo costo de publicidad/pauta; muchas ventas no la tienen).
+        s.num(r, 16, 1000, S_INPUT_MONEY)
+        s.num(r, 17, 1000, S_INPUT_MONEY)
+        s.blank(r, 18, S_INPUT_MONEY)
         D = "$D%d" % r
         # E producto
         s.formula(r, 5, 'IF(%s="","",IFERROR(VLOOKUP(%s,%s!$A:$B,2,FALSE),"⚠ Código no existe"))'
@@ -696,8 +710,9 @@ def build_ventas():
         s.formula(r, 9, 'IF(%s="","",IFERROR(VLOOKUP(%s,%s!$A:$F,6,FALSE),0))' % (D, D, q(CAT)), S_MONEY_A)
         # J costo total = cantidad * costo prom
         s.formula(r, 10, 'IF(%s="","",$F%d*$I%d)' % (D, r, r), S_MONEY_A)
-        # K Costos fijos por venta = envío Mary + bolsa/etiqueta (Config B11 + B12)
-        s.formula(r, 11, 'IF(%s="","",%s!$B$11+%s!$B$12)' % (D, q(CFG), q(CFG)), S_MONEY_A)
+        # K Costos Fijos = suma de los 3 costos editables de esta venta (P Mary + Q Papelería + R Publicidad).
+        # Antes salía fijo de Config; ahora cada venta puede tener su propio valor.
+        s.formula(r, 11, 'IF(%s="","",SUM($P%d:$R%d))' % (D, r, r), S_MONEY_A)
         # L Utilidad NETA = Valor Recibido - Costo Total - Costos fijos
         s.formula(r, 12, 'IF(%s="","",$H%d-$J%d-$K%d)' % (D, r, r, r), S_MONEY_A)
         # M clave (la usa el Catálogo: NO mover)
@@ -708,6 +723,9 @@ def build_ventas():
     s.validate_list(2, 4, MOV_LAST, 4, "%s!$A$2:$A$%d" % (q(CAT), CAT_LAST))
     s.validate_list(2, 7, MOV_LAST, 7, "%s!$F$2:$F$3" % q(CFG))
     s.validate_list(2, 15, MOV_LAST, 15, "%s!$P$2:$P$15" % q(CFG))   # forma de cobro
+    s.text(1, 20, "Costo Mary y Papelería vienen precargados (los de Config) pero puedes cambiarlos "
+                  "en cualquier venta. Publicidad se deja vacía y solo la llenas si esa venta tuvo pauta.",
+           S_FOOTER_SM)
     return s
 
 # ---------- TRASLADOS ----------
@@ -969,13 +987,17 @@ def build_catalogo_venta():
     # productos activos de la categoría elegida (o TODAS), ordenados por
     # categoría -> medidas -> nombre. Se vuelca en columnas auxiliares ocultas
     # (H..Y) y las columnas visibles A..E solo la muestran.
+    # Además de excluir "Inactivo", exige Stock Casa > 0 (Catálogo!G): así un
+    # producto que aún no tiene ninguna Compra registrada, o que ya se agotó,
+    # desaparece solo del catálogo comercial sin que tengas que tocar el campo Estado.
     NSHOW = 250
     filt = (
         'IFERROR(SORT(FILTER(%s!$A$2:$R$2000,'
         '(%s!$A$2:$A$2000<>"")*'
         '(%s!$D$2:$D$2000<>"Inactivo")*'
+        '(%s!$G$2:$G$2000>0)*'
         '(($B$3="TODAS")+(%s!$C$2:$C$2000=$B$3))),3,TRUE,18,TRUE,2,TRUE),"")'
-        % (q(CAT), q(CAT), q(CAT), q(CAT))
+        % (q(CAT), q(CAT), q(CAT), q(CAT), q(CAT))
     )
     s.formula(6, 8, filt, S_CV_CODE)   # H6: la "máquina" que trae y ordena los productos
     for c in range(8, 26):             # ocultar columnas auxiliares H..Y
@@ -1068,20 +1090,30 @@ def build_cierre_diario():
     s.text(38, 1, "+ Abonos recibidos en efectivo hoy (automático)", S_LABEL)
     s.formula(38, 2, "SUMIFS('%s'!$C:$C,'%s'!$A:$A,%s,'%s'!$D:$D,\"Efectivo\")" % (ABONOS, ABONOS, fecha, ABONOS), S_MONEY)
     s.text(38, 3, "Sale solo de los abonos marcados como 'Efectivo'.", S_FOOTER_SM)
-    s.text(39, 1, "− Salidas en efectivo (gastos / préstamos dados) →", S_LABEL); s.blank(39, 2, S_INPUT_MONEY)
-    s.text(40, 1, "= EFECTIVO QUE DEBERÍA HABER", S_TOTLAB)
-    s.formula(40, 2, "$B$36+$B$37+$B$38-$B$39", S_TOTVAL)
-    s.text(41, 1, "Efectivo realmente contado en caja →", S_LABEL); s.blank(41, 2, S_INPUT_MONEY)
-    s.text(42, 1, "DIFERENCIA (contado − esperado)", S_TOTLAB)
-    s.formula(42, 2, "$B$41-$B$40", S_TOTVAL)
-    s.formula(42, 3, 'IF($B$41="","Cuenta el efectivo y escríbelo arriba",'
-              'IF(ROUND($B$42,0)=0,"✅ CUADRA",IF($B$42>0,"🔵 Sobra efectivo","🔴 Falta efectivo")))', S_TEXT)
+    # +/- Transferencias internas que hoy movieron plata HACIA o DESDE Efectivo
+    # (hoja Movimientos: retiros de banco a caja, aportes de capital en efectivo, etc.).
+    # Así el cuadre no se descuadra cuando metes o sacas plata de la caja sin que sea venta ni gasto.
+    s.text(39, 1, "+ Transferencias/Aportes que entraron a Efectivo hoy (automático)", S_LABEL)
+    s.formula(39, 2, "SUMIFS('%s'!$E:$E,'%s'!$A:$A,%s,'%s'!$D:$D,\"Efectivo\")" % (MOV, MOV, fecha, MOV), S_MONEY)
+    s.text(39, 3, "Ej: retiro del banco a caja, o aporte de capital recibido en efectivo.", S_FOOTER_SM)
+    s.text(40, 1, "− Transferencias/Gastos que salieron de Efectivo hoy (automático)", S_LABEL)
+    s.formula(40, 2, "SUMIFS('%s'!$E:$E,'%s'!$A:$A,%s,'%s'!$C:$C,\"Efectivo\")" % (MOV, MOV, fecha, MOV), S_MONEY)
+    s.text(40, 3, "Ej: pasaste efectivo a Nequi, o registraste un gasto con Origen = Efectivo.", S_FOOTER_SM)
+    s.text(41, 1, "− Salidas en efectivo (gastos / préstamos dados) →", S_LABEL); s.blank(41, 2, S_INPUT_MONEY)
+    s.text(41, 3, "Solo para gastos en efectivo que NO registraste en Movimientos.", S_FOOTER_SM)
+    s.text(42, 1, "= EFECTIVO QUE DEBERÍA HABER", S_TOTLAB)
+    s.formula(42, 2, "$B$36+$B$37+$B$38+$B$39-$B$40-$B$41", S_TOTVAL)
+    s.text(43, 1, "Efectivo realmente contado en caja →", S_LABEL); s.blank(43, 2, S_INPUT_MONEY)
+    s.text(44, 1, "DIFERENCIA (contado − esperado)", S_TOTLAB)
+    s.formula(44, 2, "$B$43-$B$42", S_TOTVAL)
+    s.formula(44, 3, 'IF($B$43="","Cuenta el efectivo y escríbelo arriba",'
+              'IF(ROUND($B$44,0)=0,"✅ CUADRA",IF($B$44>0,"🔵 Sobra efectivo","🔴 Falta efectivo")))', S_TEXT)
 
     # HISTORIAL: los últimos 30 días (para revisar cualquier día pasado de un vistazo).
-    s.text(44, 1, "HISTORIAL — últimos 30 días", S_BANNER_PRIM); s.merge(44, 1, 44, 3)
-    s.text(45, 1, "Día", S_HDR); s.text(45, 2, "Ventas a caja", S_HDR); s.text(45, 3, "Ganancia neta", S_HDR)
+    s.text(46, 1, "HISTORIAL — últimos 30 días", S_BANNER_PRIM); s.merge(46, 1, 46, 3)
+    s.text(47, 1, "Día", S_HDR); s.text(47, 2, "Ventas a caja", S_HDR); s.text(47, 3, "Ganancia neta", S_HDR)
     for k in range(0, 30):
-        rr = 46 + k
+        rr = 48 + k
         dia = "TODAY()-%d" % k
         s.formula(rr, 1, dia, S_DATE)
         # ventas a caja del día (sin MELI) = ventas - lo de Mercado Libre
